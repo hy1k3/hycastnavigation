@@ -51,6 +51,9 @@ Thumbs.db
 ## SDL contrib
 RecastDemo/Contrib/SDL/*
 
+## SDL3 framework (platform binary, not source-controlled)
+RecastDemo/Bin/SDL3.framework/
+
 ## Generated doc files
 Docs/html
 
