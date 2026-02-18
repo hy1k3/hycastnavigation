@@ -102,24 +102,7 @@ public:
 	void init(Sample* inSample) override { sample = static_cast<Sample_TileMesh*>(inSample); }
 	void reset() override {}
 
-	void drawMenuUI() override
-	{
-		ImGui::Text("Create Tiles");
-		if (ImGui::Button("Create All"))
-		{
-			if (sample)
-			{
-				sample->buildAllTiles();
-			}
-		}
-		if (ImGui::Button("Remove All"))
-		{
-			if (sample)
-			{
-				sample->removeAllTiles();
-			}
-		}
-	}
+	void drawMenuUI() override {}
 
 	void onClick(const float* /*s*/, const float* p, bool shift) override
 	{
@@ -775,33 +758,6 @@ void Sample_TileMesh::buildAllTiles()
 	totalBuildTimeMs = static_cast<float>(buildContext->getAccumulatedTime(RC_TIMER_TEMP)) / 1000.0f;
 }
 
-void Sample_TileMesh::removeAllTiles() const
-{
-	if (inputGeometry == nullptr)
-	{
-		return;
-	}
-	if (navMesh == nullptr)
-	{
-		return;
-	}
-
-	const float* navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
-	const float* navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
-	int gridWidth = 0;
-	int gridHeight = 0;
-	rcCalcGridSize(navMeshBoundsMin, navMeshBoundsMax, cellSize, &gridWidth, &gridHeight);
-	const int tileWidth = (gridWidth + tileSize - 1) / tileSize;
-	const int tileHeight = (gridHeight + tileSize - 1) / tileSize;
-
-	for (int tileY = 0; tileY < tileHeight; ++tileY)
-	{
-		for (int tileX = 0; tileX < tileWidth; ++tileX)
-		{
-			navMesh->removeTile(navMesh->getTileRefAt(tileX, tileY, 0), 0, 0);
-		}
-	}
-}
 
 unsigned char* Sample_TileMesh::buildTileMesh(
 	const int tileX,

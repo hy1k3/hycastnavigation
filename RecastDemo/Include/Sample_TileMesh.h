@@ -102,5 +102,4 @@ public:
 	void buildTile(const float* pos);
 	void removeTile(const float* pos);
 	void buildAllTiles();
-	void removeAllTiles() const;
 };
