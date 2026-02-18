@@ -40,7 +40,6 @@ target_sources(RecastDemo PRIVATE
 	Source/PartitionedMesh.cpp
 	Source/PerfTimer.cpp
 	Source/Sample.cpp
-	Source/Sample_SoloMesh.cpp
 	Source/Sample_TileMesh.cpp
 	Source/SampleInterfaces.cpp
 	Source/TestCase.cpp
