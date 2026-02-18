@@ -76,8 +76,7 @@ end
 
 libproject("Recast", {})
 libproject("Detour", {})
-libproject("DetourTileCache", {"Detour", "Recast"})
-libproject("DebugUtils", {"Detour", "DetourTileCache", "Recast"})
+libproject("DebugUtils", {"Detour", "Recast"})
 
 project "Contrib"
 	language "C++"
@@ -119,7 +118,6 @@ project "RecastDemo"
 		"../RecastDemo/Include",
 		"../DebugUtils/Include",
 		"../Detour/Include",
-		"../DetourTileCache/Include",
 		"../Recast/Include"
 	}
 	externalincludedirs {
@@ -137,7 +135,6 @@ project "RecastDemo"
 	links {
 		"DebugUtils",
 		"Detour",
-		"DetourTileCache",
 		"Recast",
 		"Contrib"
 	}
@@ -198,7 +195,6 @@ project "Tests"
 	includedirs {
 		"../DebugUtils/Include",
 		"../Detour/Include",
-		"../DetourTileCache/Include",
 		"../Recast/Include",
 		"../Recast/Source",
 		"../Tests/Recast",
@@ -214,7 +210,6 @@ project "Tests"
 	links {
 		"DebugUtils",
 		"Detour",
-		"DetourTileCache",
 		"Recast",
 	}
 

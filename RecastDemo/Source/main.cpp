@@ -22,7 +22,6 @@
 #include "SDL_opengl.h"
 #include "Sample.h"
 #include "Sample_SoloMesh.h"
-#include "Sample_TempObstacles.h"
 #include "Sample_TileMesh.h"
 #include "TestCase.h"
 #include "imguiHelpers.h"
@@ -58,7 +57,6 @@ constexpr float CAM_FAST_MOVE_SPEED = 22.0f;
 SampleItem g_samples[] = {
 	{.name = "Solo Mesh",      .create = []() { return std::make_unique<Sample_SoloMesh>(); }     },
 	{.name = "Tile Mesh",      .create = []() { return std::make_unique<Sample_TileMesh>(); }     },
-	{.name = "Temp Obstacles", .create = []() { return std::make_unique<Sample_TempObstacles>(); }},
 };
 
 constexpr ImGuiWindowFlags staticWindowFlags = ImGuiWindowFlags_NoMove

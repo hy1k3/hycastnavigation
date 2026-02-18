@@ -41,7 +41,6 @@ target_sources(RecastDemo PRIVATE
 	Source/PerfTimer.cpp
 	Source/Sample.cpp
 	Source/Sample_SoloMesh.cpp
-	Source/Sample_TempObstacles.cpp
 	Source/Sample_TileMesh.cpp
 	Source/SampleInterfaces.cpp
 	Source/TestCase.cpp
@@ -75,7 +74,6 @@ target_link_libraries(RecastDemo PRIVATE
 	Contrib
 	RecastNavigation::DebugUtils
 	RecastNavigation::Detour
-	RecastNavigation::DetourTileCache
 	RecastNavigation::Recast
 )
 
