@@ -3,27 +3,25 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package(OpenGL REQUIRED)
 
-# SDL2 setup - platform specific
+# SDL3 setup - platform specific
 if(WIN32)
-	if(NOT SDL2_ROOT_DIR)
-		set(SDL2_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Contrib/SDL")
+	if(NOT SDL3_ROOT_DIR)
+		set(SDL3_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Contrib/SDL")
 	endif()
-	find_package(SDL2 REQUIRED)
+	find_package(SDL3 REQUIRED)
 elseif(APPLE)
-	if(NOT SDL2_ROOT_DIR)
-		set(SDL2_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Bin")
+	if(NOT SDL3_ROOT_DIR)
+		set(SDL3_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Bin")
 	endif()
-	set(SDL2_FRAMEWORK_PATH "${SDL2_ROOT_DIR}/SDL2.framework")
+	set(SDL3_FRAMEWORK_PATH "${SDL3_ROOT_DIR}/SDL3.framework")
 	# Use the framework's Headers directory for <SDL.h> style includes
-	set(SDL2_INCLUDE_DIR "${SDL2_FRAMEWORK_PATH}/Headers")
-	# Also add the parent so <SDL2/SDL.h> style includes work (used internally by SDL headers)
-	set(SDL2_INCLUDE_DIR_PARENT "${SDL2_ROOT_DIR}")
+	set(SDL3_INCLUDE_DIR "${SDL3_FRAMEWORK_PATH}/Headers")
 else()
-	# Linux - use system SDL2
-	find_package(SDL2 REQUIRED)
+	# Linux - use system SDL3
+	find_package(SDL3 REQUIRED)
 endif()
 
-# Build the third-party Contrib library (must come after SDL2 setup since it uses SDL2 variables)
+# Build the third-party Contrib library (must come after SDL3 setup since it uses SDL3 variables)
 add_subdirectory(Contrib)
 
 # RecastDemo executable
@@ -48,7 +46,6 @@ target_sources(RecastDemo PRIVATE
 	Source/SampleInterfaces.cpp
 	Source/TestCase.cpp
 	Source/Tool_ConvexVolume.cpp
-	Source/Tool_Crowd.cpp
 	Source/Tool_NavMeshPrune.cpp
 	Source/Tool_NavMeshTester.cpp
 	Source/Tool_OffMeshConnection.cpp
@@ -78,23 +75,22 @@ target_link_libraries(RecastDemo PRIVATE
 	Contrib
 	RecastNavigation::DebugUtils
 	RecastNavigation::Detour
-	RecastNavigation::DetourCrowd
 	RecastNavigation::DetourTileCache
 	RecastNavigation::Recast
 )
 
-# SDL2 linking - platform specific
+# SDL3 linking - platform specific
 if(APPLE)
-	target_link_libraries(RecastDemo PRIVATE "-F${SDL2_ROOT_DIR} -framework SDL2")
-	target_include_directories(RecastDemo PRIVATE ${SDL2_INCLUDE_DIR} ${SDL2_INCLUDE_DIR_PARENT})
+	target_link_libraries(RecastDemo PRIVATE "-F${SDL3_ROOT_DIR} -framework SDL3")
+	target_include_directories(RecastDemo PRIVATE ${SDL3_INCLUDE_DIR})
 else()
-	target_link_libraries(RecastDemo PRIVATE SDL2::SDL2 SDL2::SDL2main)
+	target_link_libraries(RecastDemo PRIVATE SDL3::SDL3)
 endif()
 
 # Copy runtime files to build directory
 if(WIN32)
 	add_custom_command(TARGET RecastDemo POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SDL2_RUNTIME_LIBRARY}" $<TARGET_FILE_DIR:RecastDemo>/
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SDL3_RUNTIME_LIBRARY}" $<TARGET_FILE_DIR:RecastDemo>/
 		COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Bin/Meshes $<TARGET_FILE_DIR:RecastDemo>/Meshes
 		COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Bin/TestCases $<TARGET_FILE_DIR:RecastDemo>/TestCases
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/Bin/DroidSans.ttf $<TARGET_FILE_DIR:RecastDemo>/
@@ -115,5 +111,5 @@ install(DIRECTORY Bin/TestCases DESTINATION bin)
 install(FILES Bin/DroidSans.ttf DESTINATION bin)
 
 if(WIN32)
-	install(FILES "${SDL2_RUNTIME_LIBRARY}" DESTINATION bin)
+	install(FILES "${SDL3_RUNTIME_LIBRARY}" DESTINATION bin)
 endif()

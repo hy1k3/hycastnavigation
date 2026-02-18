@@ -952,7 +952,6 @@ WARN_LOGFILE           =
 INPUT                  = README.md \
                          Docs \
                          . \
-                         DetourCrowd \
                          DetourTileCache \
                          Recast \
                          Docs/Extern

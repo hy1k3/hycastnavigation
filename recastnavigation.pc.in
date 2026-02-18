@@ -6,5 +6,5 @@ includedir=@includedir@
 Name: RecastNavigation
 Description: RecastNavigation is a cross-platform navigation mesh construction toolset for games
 Version: @PACKAGE_VERSION@
-Libs: -L${libdir} -lRecast -lDetour -lDebugUtils -lDetourCrowd -lDetourTileCache
+Libs: -L${libdir} -lRecast -lDetour -lDebugUtils -lDetourTileCache
 Cflags: -I${includedir} -I${includedir}/recastnavigation @PKG_CONFIG_CFLAGS@

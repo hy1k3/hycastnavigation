@@ -29,7 +29,6 @@
 #include "SDL_opengl.h"
 #include "Sample.h"
 #include "Tool_ConvexVolume.h"
-#include "Tool_Crowd.h"
 #include "Tool_NavMeshTester.h"
 #include "Tool_OffMeshConnection.h"
 #include "imguiHelpers.h"
@@ -967,7 +966,6 @@ void Sample_TempObstacles::drawToolsUI()
 	TOOL(TEMP_OBSTACLE, TempObstacleCreateTool)
 	TOOL(OFFMESH_CONNECTION, OffMeshConnectionTool)
 	TOOL(CONVEX_VOLUME, ConvexVolumeTool)
-	TOOL(CROWD, CrowdTool)
 #undef TOOL
 
 	ImGui::Separator();

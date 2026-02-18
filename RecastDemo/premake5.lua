@@ -76,7 +76,6 @@ end
 
 libproject("Recast", {})
 libproject("Detour", {})
-libproject("DetourCrowd", {"Detour", "Recast"})
 libproject("DetourTileCache", {"Detour", "Recast"})
 libproject("DebugUtils", {"Detour", "DetourTileCache", "Recast"})
 
@@ -94,19 +93,19 @@ project "Contrib"
 		"../RecastDemo/Contrib/fastlz/*.c",
 		"../RecastDemo/Contrib/imgui/*.cpp",
 		"../RecastDemo/Contrib/implot/*.cpp",
-		"../RecastDemo/Contrib/imgui/backends/imgui_impl_sdl2.cpp",
+		"../RecastDemo/Contrib/imgui/backends/imgui_impl_sdl3.cpp",
 		"../RecastDemo/Contrib/imgui/backends/imgui_impl_opengl2.cpp",
 	}
 
 	filter "system:linux"
-		buildoptions { "`pkg-config --cflags sdl2`", }
+		buildoptions { "`pkg-config --cflags sdl3`", }
 
 	filter "system:windows"
 		includedirs { "../RecastDemo/Contrib/SDL/include" }
 
 	filter "system:macosx"
-		includedirs { "Bin/SDL2.framework/Headers" }
-		externalincludedirs { "Bin/SDL2.framework/Headers" }
+		includedirs { "Bin/SDL3.framework/Headers" }
+		externalincludedirs { "Bin/SDL3.framework/Headers" }
 		frameworkdirs { "Bin" }
 
 project "RecastDemo"
@@ -120,7 +119,6 @@ project "RecastDemo"
 		"../RecastDemo/Include",
 		"../DebugUtils/Include",
 		"../Detour/Include",
-		"../DetourCrowd/Include",
 		"../DetourTileCache/Include",
 		"../Recast/Include"
 	}
@@ -139,7 +137,6 @@ project "RecastDemo"
 	links {
 		"DebugUtils",
 		"Detour",
-		"DetourCrowd",
 		"DetourTileCache",
 		"Recast",
 		"Contrib"
@@ -147,12 +144,12 @@ project "RecastDemo"
 
 	filter "system:linux"
 		buildoptions {
-			"`pkg-config --cflags sdl2`",
+			"`pkg-config --cflags sdl3`",
 			"`pkg-config --cflags gl`",
 			"`pkg-config --cflags glu`"
 		}
 		linkoptions {
-			"`pkg-config --libs sdl2`",
+			"`pkg-config --libs sdl3`",
 			"`pkg-config --libs gl`",
 			"`pkg-config --libs glu`"
 		}
@@ -167,22 +164,21 @@ project "RecastDemo"
 		links {
 			"glu32",
 			"opengl32",
-			"SDL2",
-			"SDL2main",
+			"SDL3",
 		}
 		postbuildcommands {
-			-- Copy the SDL2 dll to the Bin folder.
-			'{COPY} "%{path.getabsolute("Contrib/SDL/lib/x64/SDL2.dll")}" "%{cfg.targetdir}"'
+			-- Copy the SDL3 dll to the Bin folder.
+			'{COPY} "%{path.getabsolute("Contrib/SDL/lib/x64/SDL3.dll")}" "%{cfg.targetdir}"'
 		}
 
 	filter "system:macosx"
 		kind "ConsoleApp"
-		includedirs { "Bin/SDL2.framework/Headers" }
-		externalincludedirs { "Bin/SDL2.framework/Headers" }
+		includedirs { "Bin/SDL3.framework/Headers" }
+		externalincludedirs { "Bin/SDL3.framework/Headers" }
 		frameworkdirs { "Bin" }
 		links {
 			"OpenGL.framework",
-			"SDL2.framework",
+			"SDL3.framework",
 			"Cocoa.framework",
 		}
 
@@ -202,7 +198,6 @@ project "Tests"
 	includedirs {
 		"../DebugUtils/Include",
 		"../Detour/Include",
-		"../DetourCrowd/Include",
 		"../DetourTileCache/Include",
 		"../Recast/Include",
 		"../Recast/Source",
@@ -218,7 +213,6 @@ project "Tests"
 
 	links {
 		"DebugUtils",
-		"DetourCrowd",
 		"Detour",
 		"DetourTileCache",
 		"Recast",

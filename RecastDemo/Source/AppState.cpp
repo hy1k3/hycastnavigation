@@ -39,7 +39,7 @@ void AppState::resetCamera()
 void AppState::updateWindowSize()
 {
 	SDL_GetWindowSize(window, &width, &height);
-	SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+	SDL_GetWindowSizeInPixels(window, &drawableWidth, &drawableHeight);
 
 	glViewport(0, 0, drawableWidth, drawableHeight);
 	glGetIntegerv(GL_VIEWPORT, viewport);

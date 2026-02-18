@@ -18,7 +18,6 @@
 
 #include "Sample.h"
 
-#include "DetourCrowd.h"
 #include "DetourDebugDraw.h"
 #include "InputGeom.h"
 #include "RecastDebugDraw.h"
@@ -35,7 +34,6 @@ const char* toolNames[] = {
 	"Prune Navmesh",
 	"Create Off-Mesh Connections",
 	"Create Convex Volumes",
-	"Create Crowds",
 };
 
 namespace
@@ -92,14 +90,12 @@ Sample::Sample() : navMeshDrawFlags(DU_DRAWNAVMESH_OFFMESHCONS | DU_DRAWNAVMESH_
 {
 	resetCommonSettings();
 	navQuery = dtAllocNavMeshQuery();
-	crowd = dtAllocCrowd();
 }
 
 Sample::~Sample()
 {
 	dtFreeNavMeshQuery(navQuery);
 	dtFreeNavMesh(navMesh);
-	dtFreeCrowd(crowd);
 	delete tool;
 	for (int i = 0; i < static_cast<int>(SampleToolType::MAX_TOOLS); i++)
 	{

@@ -19,7 +19,6 @@
 #include "AppState.h"
 #include "InputGeom.h"
 #include "SDL.h"
-#include "SDL_keycode.h"
 #include "SDL_opengl.h"
 #include "Sample.h"
 #include "Sample_SoloMesh.h"
@@ -30,7 +29,7 @@
 
 #include <imgui.h>
 #include <imgui_impl_opengl2.h>
-#include <imgui_impl_sdl2.h>
+#include <imgui_impl_sdl3.h>
 #include <implot.h>
 
 #include <functional>
@@ -73,14 +72,11 @@ AppState app;
 int main(int /*argc*/, char** /*argv*/)
 {
 	// Init SDL
-	if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
+	if (!SDL_Init(SDL_INIT_VIDEO))
 	{
 		printf("Could not initialize SDL.\nError: %s\n", SDL_GetError());
 		return -1;
 	}
-
-	// Use OpenGL render driver.
-	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
 	// Enable depth buffer.
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
@@ -97,15 +93,12 @@ int main(int /*argc*/, char** /*argv*/)
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
 	// Create the SDL window with OpenGL support
-	SDL_DisplayMode displayMode;
-	SDL_GetCurrentDisplayMode(0, &displayMode);
+	const SDL_DisplayMode* displayMode = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
 	app.window = SDL_CreateWindow(
 		"Recast Demo",
-		SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED,
-		displayMode.w - 80,
-		displayMode.h - 80,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+		displayMode->w - 80,
+		displayMode->h - 80,
+		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
 	// Create the OpenGL context
 	app.glContext = SDL_GL_CreateContext(app.window);
@@ -124,7 +117,7 @@ int main(int /*argc*/, char** /*argv*/)
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImPlot::CreateContext();
-	ImGui_ImplSDL2_InitForOpenGL(app.window, app.glContext);
+	ImGui_ImplSDL3_InitForOpenGL(app.window, app.glContext);
 	ImGui_ImplOpenGL2_Init();
 
 	ImGuiIO& io = ImGui::GetIO();
@@ -136,7 +129,7 @@ int main(int /*argc*/, char** /*argv*/)
 	// Set style
 	ImGui::StyleColorsDark();
 
-	app.prevFrameTime = SDL_GetTicks();
+	app.prevFrameTime = SDL_GetTicks();  // Uint64 in SDL3
 
 	// Set up fog.
 	glEnable(GL_FOG);
@@ -161,17 +154,17 @@ int main(int /*argc*/, char** /*argv*/)
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
 		{
-			ImGui_ImplSDL2_ProcessEvent(&event);
+			ImGui_ImplSDL3_ProcessEvent(&event);
 			switch (event.type)
 			{
-			case SDL_KEYDOWN:
+			case SDL_EVENT_KEY_DOWN:
 				// Handle any key presses here.
-				switch (event.key.keysym.sym)
+				switch (event.key.key)
 				{
 				case SDLK_ESCAPE:
 					done = true;
 					break;
-				case SDLK_t:
+				case SDLK_T:
 					app.showTestCases = true;
 					app.files.clear();
 					FileIO::scanDirectory(app.testCasesFolder, ".txt", app.files);
@@ -204,13 +197,13 @@ int main(int /*argc*/, char** /*argv*/)
 				}
 				break;
 
-			case SDL_MOUSEWHEEL:
+			case SDL_EVENT_MOUSE_WHEEL:
 				if (!app.mouseOverMenu)
 				{
 					app.scrollZoom += static_cast<float>(event.wheel.y);
 				}
 				break;
-			case SDL_MOUSEBUTTONDOWN:
+			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 				if (event.button.button == SDL_BUTTON_RIGHT && !app.mouseOverMenu)
 				{
 					// Rotate view
@@ -223,7 +216,7 @@ int main(int /*argc*/, char** /*argv*/)
 				}
 				break;
 
-			case SDL_MOUSEBUTTONUP:
+			case SDL_EVENT_MOUSE_BUTTON_UP:
 				// Handle mouse clicks here.
 				if (event.button.button == SDL_BUTTON_RIGHT)
 				{
@@ -239,12 +232,12 @@ int main(int /*argc*/, char** /*argv*/)
 					if (!app.mouseOverMenu)
 					{
 						processHitTest = true;
-						processHitTestShift = (SDL_GetModState() & KMOD_SHIFT) ? true : false;
+						processHitTestShift = (SDL_GetModState() & SDL_KMOD_SHIFT) ? true : false;
 					}
 				}
 				break;
 
-			case SDL_MOUSEMOTION:
+			case SDL_EVENT_MOUSE_MOTION:
 				app.mousePos[0] = event.motion.x;
 				app.mousePos[1] = app.height - 1 - event.motion.y;
 
@@ -261,17 +254,12 @@ int main(int /*argc*/, char** /*argv*/)
 				}
 				break;
 
-			case SDL_WINDOWEVENT:
-			{
-				if (event.window.event == SDL_WINDOWEVENT_RESIZED)
-				{
-					app.updateWindowSize();
-					app.updateUIScale();
-				}
-			}
+			case SDL_EVENT_WINDOW_RESIZED:
+			app.updateWindowSize();
+			app.updateUIScale();
 			break;
 
-			case SDL_QUIT:
+			case SDL_EVENT_QUIT:
 				done = true;
 				break;
 
@@ -280,7 +268,7 @@ int main(int /*argc*/, char** /*argv*/)
 			}
 		}
 
-		Uint32 time = SDL_GetTicks();
+		Uint64 time = SDL_GetTicks();
 		float dt = static_cast<float>(time - app.prevFrameTime) / 1000.0f;
 		app.prevFrameTime = time;
 
@@ -331,8 +319,8 @@ int main(int /*argc*/, char** /*argv*/)
 		glGetDoublev(GL_MODELVIEW_MATRIX, modelviewMatrix);
 
 		// Get hit ray position and direction.
-		int mouseLogicalX;
-		int mouseLogicalY;
+		float mouseLogicalX;
+		float mouseLogicalY;
 		SDL_GetMouseState(&mouseLogicalX, &mouseLogicalY);
 
 		// Scale mouse coordinates in accordance with high-dpi scale
@@ -353,7 +341,7 @@ int main(int /*argc*/, char** /*argv*/)
 		app.rayEnd[2] = static_cast<float>(z);
 
 		// Keyboard movement.
-		const Uint8* keystate = SDL_GetKeyboardState(NULL);
+		const bool* keystate = SDL_GetKeyboardState(NULL);
 		app.moveFront = rcClamp(app.moveFront + dt * 4 * ((keystate[SDL_SCANCODE_W] || keystate[SDL_SCANCODE_UP]) ? 1.0f : -1.0f), 0.0f, 1.0f);
 		app.moveLeft = rcClamp(app.moveLeft + dt * 4 * ((keystate[SDL_SCANCODE_A] || keystate[SDL_SCANCODE_LEFT]) ? 1.0f : -1.0f), 0.0f, 1.0f);
 		app.moveBack = rcClamp(app.moveBack + dt * 4 * ((keystate[SDL_SCANCODE_S] || keystate[SDL_SCANCODE_DOWN]) ? 1.0f : -1.0f), 0.0f, 1.0f);
@@ -361,7 +349,7 @@ int main(int /*argc*/, char** /*argv*/)
 		app.moveUp = rcClamp(app.moveUp + dt * 4 * ((keystate[SDL_SCANCODE_Q] || keystate[SDL_SCANCODE_PAGEUP]) ? 1.0f : -1.0f), 0.0f, 1.0f);
 		app.moveDown = rcClamp(app.moveDown + dt * 4 * ((keystate[SDL_SCANCODE_E] || keystate[SDL_SCANCODE_PAGEDOWN]) ? 1.0f : -1.0f), 0.0f, 1.0f);
 
-		const float keybSpeed = (SDL_GetModState() & KMOD_SHIFT) ? CAM_MOVE_SPEED : CAM_FAST_MOVE_SPEED;
+		const float keybSpeed = (SDL_GetModState() & SDL_KMOD_SHIFT) ? CAM_MOVE_SPEED : CAM_FAST_MOVE_SPEED;
 		float moveX = (app.moveRight - app.moveLeft) * keybSpeed * dt;
 		float moveY = (app.moveBack - app.moveFront) * keybSpeed * dt + app.scrollZoom * 2.0f;
 		app.scrollZoom = 0;
@@ -389,7 +377,7 @@ int main(int /*argc*/, char** /*argv*/)
 		glDisable(GL_FOG);
 
 		ImGui_ImplOpenGL2_NewFrame();
-		ImGui_ImplSDL2_NewFrame();
+		ImGui_ImplSDL3_NewFrame();
 		ImGui::NewFrame();
 		// ImGui::ShowDemoWindow();
 		// ImPlot::ShowDemoWindow();
@@ -683,11 +671,11 @@ int main(int /*argc*/, char** /*argv*/)
 	}
 
 	ImGui_ImplOpenGL2_Shutdown();
-	ImGui_ImplSDL2_Shutdown();
+	ImGui_ImplSDL3_Shutdown();
 	ImPlot::DestroyContext();
 	ImGui::DestroyContext();
 
-	SDL_GL_DeleteContext(app.glContext);
+	SDL_GL_DestroyContext(app.glContext);
 	SDL_DestroyWindow(app.window);
 	SDL_Quit();
 

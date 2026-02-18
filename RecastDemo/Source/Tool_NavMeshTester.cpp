@@ -20,7 +20,6 @@
 
 #include "DetourCommon.h"
 #include "DetourDebugDraw.h"
-#include "DetourPathCorridor.h"
 #include "imguiHelpers.h"
 
 #include <imgui.h>
@@ -42,6 +41,51 @@ bool inRange(const float* v1, const float* v2, const float r, const float h)
 	const float dy = v2[1] - v1[1];
 	const float dz = v2[2] - v1[2];
 	return (dx * dx + dz * dz) < r * r && fabsf(dy) < h;
+}
+
+// Merges the visited polygon list into the start of the path corridor after a moveAlongSurface call.
+// Originally from DetourPathCorridor.cpp.
+static int dtMergeCorridorStartMoved(dtPolyRef* path, const int npath, const int maxPath,
+                                     const dtPolyRef* visited, const int nvisited)
+{
+	int furthestPath = -1;
+	int furthestVisited = -1;
+
+	// Find furthest common polygon.
+	for (int i = npath - 1; i >= 0; --i)
+	{
+		bool found = false;
+		for (int j = nvisited - 1; j >= 0; --j)
+		{
+			if (path[i] == visited[j])
+			{
+				furthestPath = i;
+				furthestVisited = j;
+				found = true;
+			}
+		}
+		if (found)
+			break;
+	}
+
+	// If no intersection found just return current path.
+	if (furthestPath == -1 || furthestVisited == -1)
+		return npath;
+
+	// Concatenate the visited path so far and the remaining original path.
+	const int req = nvisited - furthestVisited;
+	const int orig = rcMin(furthestPath + 1, npath);
+	int size = rcMax(0, npath - orig);
+	if (req + size > maxPath)
+		size = maxPath - req;
+	if (size)
+		memmove(path + req, path + orig, size * sizeof(dtPolyRef));
+
+	// Store visited
+	for (int i = 0; i < req; ++i)
+		path[i] = visited[(nvisited - 1) - i];
+
+	return req + size;
 }
 
 // This function checks if the path has a small U-turn, that is,

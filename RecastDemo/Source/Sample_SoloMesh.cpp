@@ -24,7 +24,6 @@
 #include "RecastDebugDraw.h"
 #include "SDL_opengl.h"
 #include "Tool_ConvexVolume.h"
-#include "Tool_Crowd.h"
 #include "Tool_NavMeshPrune.h"
 #include "Tool_NavMeshTester.h"
 #include "Tool_OffMeshConnection.h"
@@ -118,7 +117,6 @@ void Sample_SoloMesh::drawToolsUI()
 	TOOL(NAVMESH_PRUNE, NavMeshPruneTool)
 	TOOL(OFFMESH_CONNECTION, OffMeshConnectionTool)
 	TOOL(CONVEX_VOLUME, ConvexVolumeTool)
-	TOOL(CROWD, CrowdTool)
 #undef TOOL
 
 	ImGui::SeparatorText("Tool Settings");

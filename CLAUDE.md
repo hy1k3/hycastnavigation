@@ -47,11 +47,10 @@ Recast Navigation is a navmesh generation + runtime pathfinding system. The modu
 
 - **Recast** — navmesh generation from arbitrary 3D geometry. The pipeline runs: voxelization (`rcRasterizeTriangles`) → filtering → compaction → distance field → region building → contour tracing → polygon mesh → detail mesh.
 - **Detour** — runtime navmesh representation, A\* pathfinding, and spatial queries. This is the only module needed at game runtime.
-- **DetourCrowd** — agent movement simulation with local collision avoidance.
 - **DetourTileCache** — dynamic navmesh streaming and obstacle support for large/open worlds.
 - **DebugUtils** — visualization helpers for editor/debug builds; not needed at runtime.
 
-Data flow: geometry → **Recast** (build time) → navmesh tiles → **Detour** (runtime queries) ← **DetourCrowd** / **DetourTileCache**.
+Data flow: geometry → **Recast** (build time) → navmesh tiles → **Detour** (runtime queries) ← **DetourTileCache**.
 
 Customization points: memory allocators (`rcAllocSetCustom` / `dtAllocSetCustom`) and assert handlers can be overridden per-module without touching library source.
 

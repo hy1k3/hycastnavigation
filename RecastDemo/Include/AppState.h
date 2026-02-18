@@ -33,7 +33,7 @@ struct AppState
 
 	// Time
 	float timeAcc = 0.0f;
-	Uint32 prevFrameTime = 0;
+	Uint64 prevFrameTime = 0;
 
 	// Input
 	int mousePos[2]{0, 0};

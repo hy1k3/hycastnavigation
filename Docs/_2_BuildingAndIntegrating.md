@@ -55,11 +55,10 @@ There are a few ways to integrate Recast and Detour into your project.  Source i
 
 ### Source Integration
 
-It is recommended to add the source directories `DebugUtils`, `Detour`, `DetourCrowd`, `DetourTileCache`, and `Recast` directly into your project depending on which parts of the project you need. For example your level building tool could include `DebugUtils`, `Recast`, and `Detour`, and your game runtime could just include `Detour`.
+It is recommended to add the source directories `DebugUtils`, `Detour`, `DetourTileCache`, and `Recast` directly into your project depending on which parts of the project you need. For example your level building tool could include `DebugUtils`, `Recast`, and `Detour`, and your game runtime could just include `Detour`.
 
 - *Recast*: Core navmesh building system.
 - *Detour*: Runtime navmesh interface and query system
-- *DetourCrowd*: Runtime movement, obstacle avoidance and crowd sim systems
 - *DetourTileCache*: Runtime navmesh dynamic obstacle and re-baking system
 
 ### Installation through vcpkg

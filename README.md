@@ -21,7 +21,6 @@ Recast Navigation is divided into multiple modules, each contained in its own fo
 - `Recast/` - Navmesh generation
 - `Detour/` - Runtime loading of navmesh data, pathfinding, navmesh queries 
 - `DetourTileCache/` - Navmesh streaming.  Useful for large levels and open-world games
-- `DetourCrowd/` - Agent movement, collision avoidance, and crowd simulation
 - `DebugUtils/` - API for drawing debug visualizations of navigation data and behavior
 - `Tests/` - Unit tests
 - `RecastDemo/` - Standalone, comprehensive demo app showcasing all aspects of Recast & Detour's functionality

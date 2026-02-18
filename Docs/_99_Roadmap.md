@@ -64,9 +64,6 @@ There's already a number of spatial query functions, and fleshing out that set s
 ## Auto-markup system
 This is something recast already gives you access to add yourself, thanks to its low-level API and how each step in the process is explicit.  It is worthwhile to consider what kind of help other middleware systems provide in this process. For example, are other navigation middleware solutions providing a structured way to define spatial queries that result in nav markup? Some easy examples of useful features here might be automatic jump point or cover annotations. It would be good to talk to people in the AAA FPS space to see what markup types are most useful to them.
 
-## Formations, Group behaviors
-Extending DetourCrowd to support formations, group navigation, group behaviors and similar beyond what's it's already capable of.
-
 ## Vehicle Navigation & Movement
 A feature set centered on pathfinding and movement planning for characters with kinematic movement constraints.
 

@@ -8,7 +8,7 @@ add_library(Contrib STATIC
 	implot/implot.cpp
 	implot/implot_demo.cpp
 	implot/implot_items.cpp
-	imgui/backends/imgui_impl_sdl2.cpp
+	imgui/backends/imgui_impl_sdl3.cpp
 	imgui/backends/imgui_impl_opengl2.cpp
 )
 
@@ -34,13 +34,13 @@ target_include_directories(Contrib PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends
 )
 
-# SDL2 includes needed for imgui_impl_sdl2.cpp
+# SDL3 includes needed for imgui_impl_sdl3.cpp
 if(WIN32)
 	target_include_directories(Contrib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/SDL/include)
 elseif(APPLE)
-	# SDL2_INCLUDE_DIR and SDL2_INCLUDE_DIR_PARENT are set by the parent CMakeLists.txt
-	target_include_directories(Contrib PRIVATE ${SDL2_INCLUDE_DIR} ${SDL2_INCLUDE_DIR_PARENT})
+	# SDL3_INCLUDE_DIR is set by the parent CMakeLists.txt
+	target_include_directories(Contrib PRIVATE ${SDL3_INCLUDE_DIR})
 else()
-	# On Linux, link against SDL2 to get the include directories from the imported target
-	target_link_libraries(Contrib PRIVATE SDL2::SDL2)
+	# On Linux, link against SDL3 to get the include directories from the imported target
+	target_link_libraries(Contrib PRIVATE SDL3::SDL3)
 endif()

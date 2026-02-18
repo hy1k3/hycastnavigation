@@ -26,7 +26,6 @@ class Sample;
 class InputGeom;
 class dtNavMesh;
 class dtNavMeshQuery;
-class dtCrowd;
 
 /// Tool types.
 enum class SampleToolType : uint8_t
@@ -40,7 +39,6 @@ enum class SampleToolType : uint8_t
 	NAVMESH_PRUNE,
 	OFFMESH_CONNECTION,
 	CONVEX_VOLUME,
-	CROWD,
 
 	MAX_TOOLS
 };
@@ -118,7 +116,6 @@ public:
 	InputGeom* inputGeometry = nullptr;
 	dtNavMesh* navMesh = nullptr;
 	dtNavMeshQuery* navQuery = nullptr;
-	dtCrowd* crowd = nullptr;
 	SampleDebugDraw debugDraw;
 
 	unsigned char navMeshDrawFlags;
