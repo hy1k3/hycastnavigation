@@ -30,19 +30,12 @@
 #include <imgui_impl_sdl3.h>
 #include <implot.h>
 
-#include <functional>
 #include <string>
 #ifdef __APPLE__
 #	include <OpenGL/glu.h>
 #else
 #	include <GL/glu.h>
 #endif
-
-struct SampleItem
-{
-	std::string name;
-	std::function<std::unique_ptr<Sample>()> create;
-};
 
 // Constants
 namespace
@@ -52,10 +45,6 @@ constexpr float FOG_COLOR[4] = {0.32f, 0.31f, 0.30f, 1.0f};
 
 constexpr float CAM_MOVE_SPEED = 4.0f;
 constexpr float CAM_FAST_MOVE_SPEED = 22.0f;
-
-SampleItem g_samples[] = {
-	{.name = "Tile Mesh",      .create = []() { return std::make_unique<Sample_TileMesh>(); }     },
-};
 
 constexpr ImGuiWindowFlags staticWindowFlags = ImGuiWindowFlags_NoMove
 	| ImGuiWindowFlags_NoResize
@@ -126,6 +115,9 @@ int main(int /*argc*/, char** /*argv*/)
 	ImGui::StyleColorsDark();
 
 	app.prevFrameTime = SDL_GetTicks();  // Uint64 in SDL3
+
+	app.sample = std::make_unique<Sample_TileMesh>();
+	app.sample->buildContext = &app.buildContext;
 
 	// Set up fog.
 	glEnable(GL_FOG);
@@ -388,7 +380,6 @@ int main(int /*argc*/, char** /*argv*/)
 		}
 
 		bool newMeshSelected = false;
-		bool newSampleSelected = false;
 		if (app.showMenu)
 		{
 			// Help text.
@@ -405,28 +396,6 @@ int main(int /*argc*/, char** /*argv*/)
 				ImGui::Text("Show");
 				ImGui::Checkbox("Build Log", &app.showLog);
 				ImGui::Checkbox("Tools Panel", &app.showTools);
-
-				ImGui::SeparatorText("Sample");
-
-				if (ImGui::BeginCombo("##sampleCombo", app.sampleIndex >= 0 ? g_samples[app.sampleIndex].name.c_str() : "Choose Sample...", 0))
-				{
-					for (int sampleIndex = 0; sampleIndex < IM_ARRAYSIZE(g_samples); ++sampleIndex)
-					{
-						const bool selected = (app.sampleIndex == sampleIndex);
-						if (ImGui::Selectable(g_samples[sampleIndex].name.c_str(), selected))
-						{
-							newSampleSelected = !selected;
-							app.sampleIndex = sampleIndex;
-						}
-
-						// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-						if (selected)
-						{
-							ImGui::SetItemDefaultFocus();
-						}
-					}
-					ImGui::EndCombo();
-				}
 
 				ImGui::SeparatorText("Input Mesh");
 
@@ -522,16 +491,6 @@ int main(int /*argc*/, char** /*argv*/)
 			}
 		}
 
-		if (newSampleSelected)
-		{
-			app.sample = g_samples[app.sampleIndex].create();
-			app.sample->buildContext = &app.buildContext;
-			if (app.inputGeometry)
-			{
-				app.sample->onMeshChanged(app.inputGeometry.get());
-				app.resetCamera();
-			}
-		}
 
 		if (newMeshSelected)
 		{
@@ -599,14 +558,7 @@ int main(int /*argc*/, char** /*argv*/)
 				}
 
 				// Create sample
-				for (int sampleIndex = 0; sampleIndex < IM_ARRAYSIZE(g_samples); ++sampleIndex)
-				{
-					if (g_samples[sampleIndex].name == app.testCase->sampleName)
-					{
-						app.sample = g_samples[sampleIndex].create();
-						app.sampleIndex = sampleIndex;
-					}
-				}
+				app.sample = std::make_unique<Sample_TileMesh>();
 
 				if (app.sample)
 				{

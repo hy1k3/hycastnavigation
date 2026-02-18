@@ -64,7 +64,6 @@ struct AppState
 	float rayEnd[3];    // world space
 
 	// UI state
-	int sampleIndex = -1;
 	std::string meshName = "Choose Mesh...";
 	bool showMenu = true;
 	bool showLog = false;
