@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef RECAST_DUMP_H
-#define RECAST_DUMP_H
+#pragma once
 
 #include <stddef.h>
 
@@ -41,4 +40,3 @@ bool duReadCompactHeightfield(struct rcCompactHeightfield& chf, duFileIO* io);
 
 void duLogBuildTimes(rcContext& ctx, const int totalTileUsec);
 
-#endif // RECAST_DUMP_H

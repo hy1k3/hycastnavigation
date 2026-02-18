@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef DETOURSTATUS_H
-#define DETOURSTATUS_H
+#pragma once
 
 typedef unsigned int dtStatus;
 
@@ -62,4 +61,3 @@ inline bool dtStatusDetail(dtStatus status, unsigned int detail)
 	return (status & detail) != 0;
 }
 
-#endif // DETOURSTATUS_H

@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef RECASTALLOC_H
-#define RECASTALLOC_H
+#pragma once
 
 #include "RecastAssert.h"
 
@@ -387,5 +386,3 @@ private:
 	rcScopedDelete(const rcScopedDelete&);
 	rcScopedDelete& operator=(const rcScopedDelete&);
 };
-
-#endif

@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef DETOURNAVMESHQUERY_H
-#define DETOURNAVMESHQUERY_H
+#pragma once
 
 #include "DetourNavMesh.h"
 #include "DetourStatus.h"
@@ -587,4 +586,3 @@ dtNavMeshQuery* dtAllocNavMeshQuery();
 /// @ingroup detour
 void dtFreeNavMeshQuery(dtNavMeshQuery* query);
 
-#endif // DETOURNAVMESHQUERY_H

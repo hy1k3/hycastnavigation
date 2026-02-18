@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef DETOURNAVMESH_H
-#define DETOURNAVMESH_H
+#pragma once
 
 #include "DetourAlloc.h"
 #include "DetourStatus.h"
@@ -683,7 +682,6 @@ dtNavMesh* dtAllocNavMesh();
 ///  @ingroup detour
 void dtFreeNavMesh(dtNavMesh* navmesh);
 
-#endif // DETOURNAVMESH_H
 
 ///////////////////////////////////////////////////////////////////////////
 

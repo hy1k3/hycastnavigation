@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef DETOURTILECACHEBUILDER_H
-#define DETOURTILECACHEBUILDER_H
+#pragma once
 
 #include "DetourAlloc.h"
 #include "DetourStatus.h"
@@ -153,4 +152,3 @@ dtStatus dtBuildTileCachePolyMesh(dtTileCacheAlloc* alloc,
 bool dtTileCacheHeaderSwapEndian(unsigned char* data, const int dataSize);
 
 
-#endif // DETOURTILECACHEBUILDER_H

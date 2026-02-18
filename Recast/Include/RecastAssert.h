@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef RECASTASSERT_H
-#define RECASTASSERT_H
+#pragma once
 
 /// An assertion failure callback function.
 /// @param[in]  expression  Asserted expression.
@@ -46,4 +45,3 @@ rcAssertFailFunc* rcAssertFailGetCustom();
 		}
 #endif // !defined(RC_DISABLE_ASSERTS)
 
-#endif // RECASTASSERT_H

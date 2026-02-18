@@ -1,5 +1,4 @@
-#ifndef DETOURTILECACHE_H
-#define DETOURTILECACHE_H
+#pragma once
 
 #include "DetourStatus.h"
 
@@ -253,4 +252,3 @@ private:
 dtTileCache* dtAllocTileCache();
 void dtFreeTileCache(dtTileCache* tc);
 
-#endif

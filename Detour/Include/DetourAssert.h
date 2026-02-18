@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef DETOURASSERT_H
-#define DETOURASSERT_H
+#pragma once
 
 // Note: This header file's only purpose is to include define assert.
 // Feel free to change the file and include your own implementation instead.
@@ -53,4 +52,3 @@ dtAssertFailFunc* dtAssertFailGetCustom();
 
 #endif
 
-#endif // DETOURASSERT_H

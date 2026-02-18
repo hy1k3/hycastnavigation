@@ -4,8 +4,7 @@
 Members in this module are wrappers around the standard math library
 */
 
-#ifndef DETOURMATH_H
-#define DETOURMATH_H
+#pragma once
 
 #include <math.h>
 
@@ -27,4 +26,3 @@ inline bool dtMathIsfinite(float x)
 #endif
 }
 
-#endif

@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef DETOURCOMMON_H
-#define DETOURCOMMON_H
+#pragma once
 
 #include "DetourMath.h"
 #include <stddef.h>
@@ -523,7 +522,6 @@ TypeToRetrieveAs* dtGetThenAdvanceBufferPointer(unsigned char*& buffer, const si
 
 /// @}
 
-#endif // DETOURCOMMON_H
 
 ///////////////////////////////////////////////////////////////////////////
 

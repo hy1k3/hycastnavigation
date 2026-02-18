@@ -16,8 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
-#ifndef DEBUGDRAW_H
-#define DEBUGDRAW_H
+#pragma once
 
 // Some math headers don't have PI defined.
 static const float DU_PI = 3.14159265f;
@@ -222,4 +221,3 @@ private:
 };
 
 
-#endif // DEBUGDRAW_H
