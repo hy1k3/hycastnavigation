@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "TestCase.h"
 
 #include "DetourCommon.h"
@@ -411,7 +412,7 @@ bool TestCase::renderOverlay()
 
 
 		snprintf(text, 64, "Path %d\n", n);
-		unsigned int color = test.expand ? IM_COL32(255, 192, 0, 220) : IM_COL32(0, 0, 0, 128);
+		uint32_t color = test.expand ? IM_COL32(255, 192, 0, 220) : IM_COL32(0, 0, 0, 128);
 		DrawWorldspaceText(pt[0], pt[1], pt[2], color, text, true, 25);
 		n++;
 	}

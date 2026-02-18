@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "Sample.h"
 
 /// Tool to create off-mesh connections for InputGeom
@@ -27,7 +29,7 @@ class OffMeshConnectionTool : public SampleTool
 	float hitPos[3];
 	bool hitPosSet = false;
 	bool bidirectional = true;
-	unsigned char oldFlags = 0;
+	uint8_t oldFlags = 0;
 
 public:
 	OffMeshConnectionTool() = default;

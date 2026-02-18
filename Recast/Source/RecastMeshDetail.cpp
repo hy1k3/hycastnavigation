@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include <float.h>
 #include <math.h>
 #include <string.h>
@@ -32,7 +33,7 @@ struct rcHeightPatch
 {
 	inline rcHeightPatch() : data(0), xmin(0), ymin(0), width(0), height(0) {}
 	inline ~rcHeightPatch() { rcFree(data); }
-	unsigned short* data;
+	uint16_t* data;
 	int xmin, ymin, width, height;
 };
 
@@ -199,7 +200,7 @@ static float distToPoly(int nvert, const float* verts, const float* p)
 }
 
 
-static unsigned short getHeight(const float fx, const float fy, const float fz,
+static uint16_t getHeight(const float fx, const float fy, const float fz,
 								const float /*cs*/, const float ics, const float ch,
 								const int radius, const rcHeightPatch& hp)
 {
@@ -207,7 +208,7 @@ static unsigned short getHeight(const float fx, const float fy, const float fz,
 	int iz = (int)floorf(fz*ics + 0.01f);
 	ix = rcClamp(ix-hp.xmin, 0, hp.width - 1);
 	iz = rcClamp(iz-hp.ymin, 0, hp.height - 1);
-	unsigned short h = hp.data[ix+iz*hp.width];
+	uint16_t h = hp.data[ix+iz*hp.width];
 	if (h == RC_UNSET_HEIGHT)
 	{
 		// Special case when data might be bad.
@@ -228,7 +229,7 @@ static unsigned short getHeight(const float fx, const float fy, const float fz,
 
 			if (nx >= 0 && nz >= 0 && nx < hp.width && nz < hp.height)
 			{
-				const unsigned short nh = hp.data[nx + nz*hp.width];
+				const uint16_t nh = hp.data[nx + nz*hp.width];
 				if (nh != RC_UNSET_HEIGHT)
 				{
 					const float d = fabsf(nh*ch - fy);
@@ -660,7 +661,7 @@ static void setTriFlags(rcTempVector<int>& tris, int nhull, int* hull)
 		int a = tris[i + 0];
 		int b = tris[i + 1];
 		int c = tris[i + 2];
-		unsigned short flags = 0;
+		uint16_t flags = 0;
 		flags |= (onHull(a, b, nhull, hull) ? DETAIL_EDGE_BOUNDARY : 0) << 0;
 		flags |= (onHull(b, c, nhull, hull) ? DETAIL_EDGE_BOUNDARY : 0) << 2;
 		flags |= (onHull(c, a, nhull, hull) ? DETAIL_EDGE_BOUNDARY : 0) << 4;
@@ -917,8 +918,8 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 }
 
 static void seedArrayWithPolyCenter(rcContext* ctx, const rcCompactHeightfield& chf,
-									const unsigned short* poly, const int npoly,
-									const unsigned short* verts, const int bs,
+									const uint16_t* poly, const int npoly,
+									const uint16_t* verts, const int bs,
 									rcHeightPatch& hp, rcTempVector<int>& array)
 {
 	// Note: Reads to the compact heightfield are offset by border size (bs)
@@ -977,7 +978,7 @@ static void seedArrayWithPolyCenter(rcContext* ctx, const rcCompactHeightfield& 
 	array.push_back(startSpanIndex);
 
 	int dirs[] = { 0, 1, 2, 3 };
-	memset(hp.data, 0, sizeof(unsigned short)*hp.width*hp.height);
+	memset(hp.data, 0, sizeof(uint16_t)*hp.width*hp.height);
 	// DFS to move to the center. Note that we need a DFS here and can not just move
 	// directly towards the center without recording intermediate nodes, even though the polygons
 	// are convex. In very rare we can get stuck due to contour simplification if we do not
@@ -1043,7 +1044,7 @@ static void seedArrayWithPolyCenter(rcContext* ctx, const rcCompactHeightfield& 
 	array.push_back(cy+bs);
 	array.push_back(ci);
 
-	memset(hp.data, 0xff, sizeof(unsigned short)*hp.width*hp.height);
+	memset(hp.data, 0xff, sizeof(uint16_t)*hp.width*hp.height);
 	const rcCompactSpan& cs = chf.spans[ci];
 	hp.data[cx-hp.xmin+(cy-hp.ymin)*hp.width] = cs.y;
 }
@@ -1058,8 +1059,8 @@ static void push3(rcTempVector<int>& queue, int v1, int v2, int v3)
 }
 
 static void getHeightData(rcContext* ctx, const rcCompactHeightfield& chf,
-						  const unsigned short* poly, const int npoly,
-						  const unsigned short* verts, const int bs,
+						  const uint16_t* poly, const int npoly,
+						  const uint16_t* verts, const int bs,
 						  rcHeightPatch& hp, rcTempVector<int>& queue,
 						  int region)
 {
@@ -1068,7 +1069,7 @@ static void getHeightData(rcContext* ctx, const rcCompactHeightfield& chf,
 	
 	queue.clear();
 	// Set all heights to RC_UNSET_HEIGHT.
-	memset(hp.data, 0xff, sizeof(unsigned short)*hp.width*hp.height);
+	memset(hp.data, 0xff, sizeof(uint16_t)*hp.width*hp.height);
 
 	bool empty = true;
 	
@@ -1158,7 +1159,7 @@ static void getHeightData(rcContext* ctx, const rcCompactHeightfield& chf,
 			const int hx = ax - hp.xmin - bs;
 			const int hy = ay - hp.ymin - bs;
 			
-			if ((unsigned int)hx >= (unsigned int)hp.width || (unsigned int)hy >= (unsigned int)hp.height)
+			if ((uint32_t)hx >= (uint32_t)hp.width || (uint32_t)hy >= (uint32_t)hp.height)
 				continue;
 			
 			if (hp.data[hx + hy*hp.width] != RC_UNSET_HEIGHT)
@@ -1222,7 +1223,7 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 	// Find max size for a polygon area.
 	for (int i = 0; i < mesh.npolys; ++i)
 	{
-		const unsigned short* p = &mesh.polys[i*nvp*2];
+		const uint16_t* p = &mesh.polys[i*nvp*2];
 		int& xmin = bounds[i*4+0];
 		int& xmax = bounds[i*4+1];
 		int& ymin = bounds[i*4+2];
@@ -1234,7 +1235,7 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		for (int j = 0; j < nvp; ++j)
 		{
 			if(p[j] == RC_MESH_NULL_IDX) break;
-			const unsigned short* v = &mesh.verts[p[j]*3];
+			const uint16_t* v = &mesh.verts[p[j]*3];
 			xmin = rcMin(xmin, (int)v[0]);
 			xmax = rcMax(xmax, (int)v[0]);
 			ymin = rcMin(ymin, (int)v[2]);
@@ -1250,7 +1251,7 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		maxhh = rcMax(maxhh, ymax-ymin);
 	}
 	
-	hp.data = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxhw*maxhh, RC_ALLOC_TEMP);
+	hp.data = (uint16_t*)rcAlloc(sizeof(uint16_t)*maxhw*maxhh, RC_ALLOC_TEMP);
 	if (!hp.data)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'hp.data' (%d).", maxhw*maxhh);
@@ -1260,7 +1261,7 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 	dmesh.nmeshes = mesh.npolys;
 	dmesh.nverts = 0;
 	dmesh.ntris = 0;
-	dmesh.meshes = (unsigned int*)rcAlloc(sizeof(unsigned int)*dmesh.nmeshes*4, RC_ALLOC_PERM);
+	dmesh.meshes = (uint32_t*)rcAlloc(sizeof(uint32_t)*dmesh.nmeshes*4, RC_ALLOC_PERM);
 	if (!dmesh.meshes)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.meshes' (%d).", dmesh.nmeshes*4);
@@ -1278,7 +1279,7 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		return false;
 	}
 	dmesh.ntris = 0;
-	dmesh.tris = (unsigned char*)rcAlloc(sizeof(unsigned char)*tcap*4, RC_ALLOC_PERM);
+	dmesh.tris = (uint8_t*)rcAlloc(sizeof(uint8_t)*tcap*4, RC_ALLOC_PERM);
 	if (!dmesh.tris)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.tris' (%d).", tcap*4);
@@ -1287,14 +1288,14 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 	
 	for (int i = 0; i < mesh.npolys; ++i)
 	{
-		const unsigned short* p = &mesh.polys[i*nvp*2];
+		const uint16_t* p = &mesh.polys[i*nvp*2];
 		
 		// Store polygon vertices for processing.
 		int npoly = 0;
 		for (int j = 0; j < nvp; ++j)
 		{
 			if(p[j] == RC_MESH_NULL_IDX) break;
-			const unsigned short* v = &mesh.verts[p[j]*3];
+			const uint16_t* v = &mesh.verts[p[j]*3];
 			poly[j*3+0] = v[0]*cs;
 			poly[j*3+1] = v[1]*ch;
 			poly[j*3+2] = v[2]*cs;
@@ -1337,10 +1338,10 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		// Store detail submesh.
 		const int ntris = static_cast<int>(tris.size()) / 4;
 		
-		dmesh.meshes[i*4+0] = (unsigned int)dmesh.nverts;
-		dmesh.meshes[i*4+1] = (unsigned int)nverts;
-		dmesh.meshes[i*4+2] = (unsigned int)dmesh.ntris;
-		dmesh.meshes[i*4+3] = (unsigned int)ntris;
+		dmesh.meshes[i*4+0] = (uint32_t)dmesh.nverts;
+		dmesh.meshes[i*4+1] = (uint32_t)nverts;
+		dmesh.meshes[i*4+2] = (uint32_t)dmesh.ntris;
+		dmesh.meshes[i*4+3] = (uint32_t)ntris;
 		
 		// Store vertices, allocate more memory if necessary.
 		if (dmesh.nverts+nverts > vcap)
@@ -1372,24 +1373,24 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		{
 			while (dmesh.ntris+ntris > tcap)
 				tcap += 256;
-			unsigned char* newt = (unsigned char*)rcAlloc(sizeof(unsigned char)*tcap*4, RC_ALLOC_PERM);
+			uint8_t* newt = (uint8_t*)rcAlloc(sizeof(uint8_t)*tcap*4, RC_ALLOC_PERM);
 			if (!newt)
 			{
 				ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'newt' (%d).", tcap*4);
 				return false;
 			}
 			if (dmesh.ntris)
-				memcpy(newt, dmesh.tris, sizeof(unsigned char)*4*dmesh.ntris);
+				memcpy(newt, dmesh.tris, sizeof(uint8_t)*4*dmesh.ntris);
 			rcFree(dmesh.tris);
 			dmesh.tris = newt;
 		}
 		for (int j = 0; j < ntris; ++j)
 		{
 			const int* t = &tris[j*4];
-			dmesh.tris[dmesh.ntris*4+0] = (unsigned char)t[0];
-			dmesh.tris[dmesh.ntris*4+1] = (unsigned char)t[1];
-			dmesh.tris[dmesh.ntris*4+2] = (unsigned char)t[2];
-			dmesh.tris[dmesh.ntris*4+3] = (unsigned char)t[3];
+			dmesh.tris[dmesh.ntris*4+0] = (uint8_t)t[0];
+			dmesh.tris[dmesh.ntris*4+1] = (uint8_t)t[1];
+			dmesh.tris[dmesh.ntris*4+2] = (uint8_t)t[2];
+			dmesh.tris[dmesh.ntris*4+3] = (uint8_t)t[3];
 			dmesh.ntris++;
 		}
 	}
@@ -1417,7 +1418,7 @@ bool rcMergePolyMeshDetails(rcContext* ctx, rcPolyMeshDetail** meshes, const int
 	}
 	
 	mesh.nmeshes = 0;
-	mesh.meshes = (unsigned int*)rcAlloc(sizeof(unsigned int)*maxMeshes*4, RC_ALLOC_PERM);
+	mesh.meshes = (uint32_t*)rcAlloc(sizeof(uint32_t)*maxMeshes*4, RC_ALLOC_PERM);
 	if (!mesh.meshes)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'pmdtl.meshes' (%d).", maxMeshes*4);
@@ -1425,7 +1426,7 @@ bool rcMergePolyMeshDetails(rcContext* ctx, rcPolyMeshDetail** meshes, const int
 	}
 	
 	mesh.ntris = 0;
-	mesh.tris = (unsigned char*)rcAlloc(sizeof(unsigned char)*maxTris*4, RC_ALLOC_PERM);
+	mesh.tris = (uint8_t*)rcAlloc(sizeof(uint8_t)*maxTris*4, RC_ALLOC_PERM);
 	if (!mesh.tris)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.tris' (%d).", maxTris*4);
@@ -1447,11 +1448,11 @@ bool rcMergePolyMeshDetails(rcContext* ctx, rcPolyMeshDetail** meshes, const int
 		if (!dm) continue;
 		for (int j = 0; j < dm->nmeshes; ++j)
 		{
-			unsigned int* dst = &mesh.meshes[mesh.nmeshes*4];
-			unsigned int* src = &dm->meshes[j*4];
-			dst[0] = (unsigned int)mesh.nverts+src[0];
+			uint32_t* dst = &mesh.meshes[mesh.nmeshes*4];
+			uint32_t* src = &dm->meshes[j*4];
+			dst[0] = (uint32_t)mesh.nverts+src[0];
 			dst[1] = src[1];
-			dst[2] = (unsigned int)mesh.ntris+src[2];
+			dst[2] = (uint32_t)mesh.ntris+src[2];
 			dst[3] = src[3];
 			mesh.nmeshes++;
 		}

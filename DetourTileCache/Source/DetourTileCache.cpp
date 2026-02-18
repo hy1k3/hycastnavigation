@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "DetourTileCache.h"
 #include "DetourTileCacheBuilder.h"
 #include "DetourNavMeshBuilder.h"
@@ -33,9 +34,9 @@ static bool contains(const dtCompressedTileRef* a, const int n, const dtCompress
 
 inline int computeTileHash(int x, int y, const int mask)
 {
-	const unsigned int h1 = 0x8da6b343; // Large multiplicative constants;
-	const unsigned int h2 = 0xd8163841; // here arbitrarily chosen primes
-	unsigned int n = h1 * x + h2 * y;
+	const uint32_t h1 = 0x8da6b343; // Large multiplicative constants;
+	const uint32_t h2 = 0xd8163841; // here arbitrarily chosen primes
+	uint32_t n = h1 * x + h2 * y;
 	return (int)(n & mask);
 }
 
@@ -104,8 +105,8 @@ const dtCompressedTile* dtTileCache::getTileByRef(dtCompressedTileRef ref) const
 {
 	if (!ref)
 		return 0;
-	unsigned int tileIndex = decodeTileIdTile(ref);
-	unsigned int tileSalt = decodeTileIdSalt(ref);
+	uint32_t tileIndex = decodeTileIdTile(ref);
+	uint32_t tileSalt = decodeTileIdSalt(ref);
 	if ((int)tileIndex >= m_params.maxTiles)
 		return 0;
 	const dtCompressedTile* tile = &m_tiles[tileIndex];
@@ -161,9 +162,9 @@ dtStatus dtTileCache::init(const dtTileCacheParams* params,
 	}
 	
 	// Init ID generator values.
-	m_tileBits = dtIlog2(dtNextPow2((unsigned int)m_params.maxTiles));
+	m_tileBits = dtIlog2(dtNextPow2((uint32_t)m_params.maxTiles));
 	// Only allow 31 salt bits, since the salt mask is calculated using 32bit uint and it will overflow.
-	m_saltBits = dtMin((unsigned int)31, 32 - m_tileBits);
+	m_saltBits = dtMin((uint32_t)31, 32 - m_tileBits);
 	if (m_saltBits < 10)
 		return DT_FAILURE | DT_INVALID_PARAM;
 	
@@ -214,14 +215,14 @@ dtCompressedTile* dtTileCache::getTileAt(const int tx, const int ty, const int t
 dtCompressedTileRef dtTileCache::getTileRef(const dtCompressedTile* tile) const
 {
 	if (!tile) return 0;
-	const unsigned int it = (unsigned int)(tile - m_tiles);
+	const uint32_t it = (uint32_t)(tile - m_tiles);
 	return (dtCompressedTileRef)encodeTileId(tile->salt, it);
 }
 
 dtObstacleRef dtTileCache::getObstacleRef(const dtTileCacheObstacle* ob) const
 {
 	if (!ob) return 0;
-	const unsigned int idx = (unsigned int)(ob - m_obstacles);
+	const uint32_t idx = (uint32_t)(ob - m_obstacles);
 	return encodeObstacleId(ob->salt, idx);
 }
 
@@ -229,11 +230,11 @@ const dtTileCacheObstacle* dtTileCache::getObstacleByRef(dtObstacleRef ref)
 {
 	if (!ref)
 		return 0;
-	unsigned int idx = decodeObstacleIdObstacle(ref);
+	uint32_t idx = decodeObstacleIdObstacle(ref);
 	if ((int)idx >= m_params.maxObstacles)
 		return 0;
 	const dtTileCacheObstacle* ob = &m_obstacles[idx];
-	unsigned int salt = decodeObstacleIdSalt(ref);
+	uint32_t salt = decodeObstacleIdSalt(ref);
 	if (ob->salt != salt)
 		return 0;
 	return ob;
@@ -244,7 +245,7 @@ dtTileCacheMeshProcess::~dtTileCacheMeshProcess()
 	// Defined out of line to fix the weak v-tables warning
 }
 
-dtStatus dtTileCache::addTile(unsigned char* data, const int dataSize, unsigned char flags, dtCompressedTileRef* result)
+dtStatus dtTileCache::addTile(uint8_t* data, const int dataSize, uint8_t flags, dtCompressedTileRef* result)
 {
 	// Make sure the data is in right format.
 	dtTileCacheLayerHeader* header = (dtTileCacheLayerHeader*)data;
@@ -290,12 +291,12 @@ dtStatus dtTileCache::addTile(unsigned char* data, const int dataSize, unsigned 
 	return DT_SUCCESS;
 }
 
-dtStatus dtTileCache::removeTile(dtCompressedTileRef ref, unsigned char** data, int* dataSize)
+dtStatus dtTileCache::removeTile(dtCompressedTileRef ref, uint8_t** data, int* dataSize)
 {
 	if (!ref)
 		return DT_FAILURE | DT_INVALID_PARAM;
-	unsigned int tileIndex = decodeTileIdTile(ref);
-	unsigned int tileSalt = decodeTileIdSalt(ref);
+	uint32_t tileIndex = decodeTileIdTile(ref);
+	uint32_t tileSalt = decodeTileIdSalt(ref);
 	if ((int)tileIndex >= m_params.maxTiles)
 		return DT_FAILURE | DT_INVALID_PARAM;
 	dtCompressedTile* tile = &m_tiles[tileIndex];
@@ -371,7 +372,7 @@ dtStatus dtTileCache::addObstacle(const float* pos, const float radius, const fl
 	if (!ob)
 		return DT_FAILURE | DT_OUT_OF_MEMORY;
 	
-	unsigned short salt = ob->salt;
+	uint16_t salt = ob->salt;
 	memset(ob, 0, sizeof(dtTileCacheObstacle));
 	ob->salt = salt;
 	ob->state = DT_OBSTACLE_PROCESSING;
@@ -406,7 +407,7 @@ dtStatus dtTileCache::addBoxObstacle(const float* bmin, const float* bmax, dtObs
 	if (!ob)
 		return DT_FAILURE | DT_OUT_OF_MEMORY;
 	
-	unsigned short salt = ob->salt;
+	uint16_t salt = ob->salt;
 	memset(ob, 0, sizeof(dtTileCacheObstacle));
 	ob->salt = salt;
 	ob->state = DT_OBSTACLE_PROCESSING;
@@ -440,7 +441,7 @@ dtStatus dtTileCache::addBoxObstacle(const float* center, const float* halfExten
 	if (!ob)
 		return DT_FAILURE | DT_OUT_OF_MEMORY;
 
-	unsigned short salt = ob->salt;
+	uint16_t salt = ob->salt;
 	memset(ob, 0, sizeof(dtTileCacheObstacle));
 	ob->salt = salt;
 	ob->state = DT_OBSTACLE_PROCESSING;
@@ -530,11 +531,11 @@ dtStatus dtTileCache::update(const float /*dt*/, dtNavMesh* navmesh,
 		{
 			ObstacleRequest* req = &m_reqs[i];
 			
-			unsigned int idx = decodeObstacleIdObstacle(req->ref);
+			uint32_t idx = decodeObstacleIdObstacle(req->ref);
 			if ((int)idx >= m_params.maxObstacles)
 				continue;
 			dtTileCacheObstacle* ob = &m_obstacles[idx];
-			unsigned int salt = decodeObstacleIdSalt(req->ref);
+			uint32_t salt = decodeObstacleIdSalt(req->ref);
 			if (ob->salt != salt)
 				continue;
 			
@@ -546,7 +547,7 @@ dtStatus dtTileCache::update(const float /*dt*/, dtNavMesh* navmesh,
 
 				int ntouched = 0;
 				queryTiles(bmin, bmax, ob->touched, &ntouched, DT_MAX_TOUCHED_TILES);
-				ob->ntouched = (unsigned char)ntouched;
+				ob->ntouched = (uint8_t)ntouched;
 				// Add tiles to update list.
 				ob->npending = 0;
 				for (int j = 0; j < ob->ntouched; ++j)
@@ -659,11 +660,11 @@ dtStatus dtTileCache::buildNavMeshTile(const dtCompressedTileRef ref, dtNavMesh*
 	dtAssert(m_talloc);
 	dtAssert(m_tcomp);
 	
-	unsigned int idx = decodeTileIdTile(ref);
-	if (idx > (unsigned int)m_params.maxTiles)
+	uint32_t idx = decodeTileIdTile(ref);
+	if (idx > (uint32_t)m_params.maxTiles)
 		return DT_FAILURE | DT_INVALID_PARAM;
 	const dtCompressedTile* tile = &m_tiles[idx];
-	unsigned int salt = decodeTileIdSalt(ref);
+	uint32_t salt = decodeTileIdSalt(ref);
 	if (tile->salt != salt)
 		return DT_FAILURE | DT_INVALID_PARAM;
 	
@@ -758,7 +759,7 @@ dtStatus dtTileCache::buildNavMeshTile(const dtCompressedTileRef ref, dtNavMesh*
 		m_tmproc->process(&params, bc.lmesh->areas, bc.lmesh->flags);
 	}
 	
-	unsigned char* navData = 0;
+	uint8_t* navData = 0;
 	int navDataSize = 0;
 	if (!dtCreateNavMeshData(&params, &navData, &navDataSize))
 		return DT_FAILURE;

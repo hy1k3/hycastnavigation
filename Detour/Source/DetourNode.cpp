@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "DetourNode.h"
 #include "DetourAlloc.h"
 #include "DetourAssert.h"
@@ -24,7 +25,7 @@
 
 #ifdef DT_POLYREF64
 // From Thomas Wang, https://gist.github.com/badboy/6267743
-inline unsigned int dtHashRef(dtPolyRef a)
+inline uint32_t dtHashRef(dtPolyRef a)
 {
 	a = (~a) + (a << 18); // a = (a << 18) - a - 1;
 	a = a ^ (a >> 31);
@@ -32,10 +33,10 @@ inline unsigned int dtHashRef(dtPolyRef a)
 	a = a ^ (a >> 11);
 	a = a + (a << 6);
 	a = a ^ (a >> 22);
-	return (unsigned int)a;
+	return (uint32_t)a;
 }
 #else
-inline unsigned int dtHashRef(dtPolyRef a)
+inline uint32_t dtHashRef(dtPolyRef a)
 {
 	a += ~(a<<15);
 	a ^=  (a>>10);
@@ -43,7 +44,7 @@ inline unsigned int dtHashRef(dtPolyRef a)
 	a ^=  (a>>6);
 	a += ~(a<<11);
 	a ^=  (a>>16);
-	return (unsigned int)a;
+	return (uint32_t)a;
 }
 #endif
 
@@ -56,7 +57,7 @@ dtNodePool::dtNodePool(int maxNodes, int hashSize) :
 	m_hashSize(hashSize),
 	m_nodeCount(0)
 {
-	dtAssert(dtNextPow2(m_hashSize) == (unsigned int)m_hashSize);
+	dtAssert(dtNextPow2(m_hashSize) == (uint32_t)m_hashSize);
 	// pidx is special as 0 means "none" and 1 is the first node. For that reason
 	// we have 1 fewer nodes available than the number of values it can contain.
 	dtAssert(m_maxNodes > 0 && m_maxNodes <= DT_NULL_IDX && m_maxNodes <= (1 << DT_NODE_PARENT_BITS) - 1);
@@ -86,10 +87,10 @@ void dtNodePool::clear()
 	m_nodeCount = 0;
 }
 
-unsigned int dtNodePool::findNodes(dtPolyRef id, dtNode** nodes, const int maxNodes)
+uint32_t dtNodePool::findNodes(dtPolyRef id, dtNode** nodes, const int maxNodes)
 {
 	int n = 0;
-	unsigned int bucket = dtHashRef(id) & (m_hashSize-1);
+	uint32_t bucket = dtHashRef(id) & (m_hashSize-1);
 	dtNodeIndex i = m_first[bucket];
 	while (i != DT_NULL_IDX)
 	{
@@ -105,9 +106,9 @@ unsigned int dtNodePool::findNodes(dtPolyRef id, dtNode** nodes, const int maxNo
 	return n;
 }
 
-dtNode* dtNodePool::findNode(dtPolyRef id, unsigned char state)
+dtNode* dtNodePool::findNode(dtPolyRef id, uint8_t state)
 {
-	unsigned int bucket = dtHashRef(id) & (m_hashSize-1);
+	uint32_t bucket = dtHashRef(id) & (m_hashSize-1);
 	dtNodeIndex i = m_first[bucket];
 	while (i != DT_NULL_IDX)
 	{
@@ -118,9 +119,9 @@ dtNode* dtNodePool::findNode(dtPolyRef id, unsigned char state)
 	return 0;
 }
 
-dtNode* dtNodePool::getNode(dtPolyRef id, unsigned char state)
+dtNode* dtNodePool::getNode(dtPolyRef id, uint8_t state)
 {
-	unsigned int bucket = dtHashRef(id) & (m_hashSize-1);
+	uint32_t bucket = dtHashRef(id) & (m_hashSize-1);
 	dtNodeIndex i = m_first[bucket];
 	dtNode* node = 0;
 	while (i != DT_NULL_IDX)

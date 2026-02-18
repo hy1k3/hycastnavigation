@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "Sample.h"
 
 #include "DetourDebugDraw.h"
@@ -56,7 +57,7 @@ struct NavMeshTileHeader
 
 }
 
-unsigned int SampleDebugDraw::areaToCol(unsigned int area)
+uint32_t SampleDebugDraw::areaToCol(uint32_t area)
 {
 	switch (area)
 	{
@@ -415,7 +416,7 @@ dtNavMesh* Sample::loadAll(const char* path)
 			break;
 		}
 
-		unsigned char* data = (unsigned char*)dtAlloc(tileHeader.dataSize, DT_ALLOC_PERM);
+		uint8_t* data = (uint8_t*)dtAlloc(tileHeader.dataSize, DT_ALLOC_PERM);
 		if (!data)
 		{
 			break;

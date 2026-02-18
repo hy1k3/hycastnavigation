@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "DetourMath.h"
 #include <stddef.h>
 
@@ -350,8 +352,8 @@ inline float dtTriArea2D(const float* a, const float* b, const float* c)
 ///  @param[in]		bmax	Maximum bounds of box B. [(x, y, z)]
 /// @return True if the two AABB's overlap.
 /// @see dtOverlapBounds
-inline bool dtOverlapQuantBounds(const unsigned short amin[3], const unsigned short amax[3],
-								 const unsigned short bmin[3], const unsigned short bmax[3])
+inline bool dtOverlapQuantBounds(const uint16_t amin[3], const uint16_t amax[3],
+								 const uint16_t bmin[3], const uint16_t bmax[3])
 {
 	bool overlap = true;
 	overlap = (amin[0] > bmax[0] || amax[0] < bmin[0]) ? false : overlap;
@@ -420,7 +422,7 @@ float dtDistancePtSegSqr2D(const float* pt, const float* p, const float* q, floa
 ///  @param[in]		idx		The polygon indices. [(vertIndex) * @p nidx]
 ///  @param[in]		nidx	The number of indices in the polygon. [Limit: >= 3]
 ///  @param[in]		verts	The polygon vertices. [(x, y, z) * vertCount]
-void dtCalcPolyCenter(float* tc, const unsigned short* idx, int nidx, const float* verts);
+void dtCalcPolyCenter(float* tc, const uint16_t* idx, int nidx, const float* verts);
 
 /// Determines if the two convex polygons overlap on the xz-plane.
 ///  @param[in]		polya		Polygon A vertices.	[(x, y, z) * @p npolya]
@@ -435,7 +437,7 @@ bool dtOverlapPolyPoly2D(const float* polya, const int npolya,
 /// @name Miscellanious functions.
 /// @{
 
-inline unsigned int dtNextPow2(unsigned int v)
+inline uint32_t dtNextPow2(uint32_t v)
 {
 	v--;
 	v |= v >> 1;
@@ -447,10 +449,10 @@ inline unsigned int dtNextPow2(unsigned int v)
 	return v;
 }
 
-inline unsigned int dtIlog2(unsigned int v)
+inline uint32_t dtIlog2(uint32_t v)
 {
-	unsigned int r;
-	unsigned int shift;
+	uint32_t r;
+	uint32_t shift;
 	r = (v > 0xffff) << 4; v >>= r;
 	shift = (v > 0xff) << 3; v >>= shift; r |= shift;
 	shift = (v > 0xf) << 2; v >>= shift; r |= shift;
@@ -463,40 +465,40 @@ inline int dtAlign4(int x) { return (x+3) & ~3; }
 
 inline int dtOppositeTile(int side) { return (side+4) & 0x7; }
 
-inline void dtSwapByte(unsigned char* a, unsigned char* b)
+inline void dtSwapByte(uint8_t* a, uint8_t* b)
 {
-	unsigned char tmp = *a;
+	uint8_t tmp = *a;
 	*a = *b;
 	*b = tmp;
 }
 
-inline void dtSwapEndian(unsigned short* v)
+inline void dtSwapEndian(uint16_t* v)
 {
-	unsigned char* x = (unsigned char*)v;
+	uint8_t* x = (uint8_t*)v;
 	dtSwapByte(x+0, x+1);
 }
 
 inline void dtSwapEndian(short* v)
 {
-	unsigned char* x = (unsigned char*)v;
+	uint8_t* x = (uint8_t*)v;
 	dtSwapByte(x+0, x+1);
 }
 
-inline void dtSwapEndian(unsigned int* v)
+inline void dtSwapEndian(uint32_t* v)
 {
-	unsigned char* x = (unsigned char*)v;
+	uint8_t* x = (uint8_t*)v;
 	dtSwapByte(x+0, x+3); dtSwapByte(x+1, x+2);
 }
 
 inline void dtSwapEndian(int* v)
 {
-	unsigned char* x = (unsigned char*)v;
+	uint8_t* x = (uint8_t*)v;
 	dtSwapByte(x+0, x+3); dtSwapByte(x+1, x+2);
 }
 
 inline void dtSwapEndian(float* v)
 {
-	unsigned char* x = (unsigned char*)v;
+	uint8_t* x = (uint8_t*)v;
 	dtSwapByte(x+0, x+3); dtSwapByte(x+1, x+2);
 }
 
@@ -504,7 +506,7 @@ void dtRandomPointInConvexPoly(const float* pts, const int npts, float* areas,
 							   const float s, const float t, float* out);
 
 template<typename TypeToRetrieveAs>
-TypeToRetrieveAs* dtGetThenAdvanceBufferPointer(const unsigned char*& buffer, const size_t distanceToAdvance)
+TypeToRetrieveAs* dtGetThenAdvanceBufferPointer(const uint8_t*& buffer, const size_t distanceToAdvance)
 {
 	TypeToRetrieveAs* returnPointer = reinterpret_cast<TypeToRetrieveAs*>(buffer);
 	buffer += distanceToAdvance;
@@ -512,7 +514,7 @@ TypeToRetrieveAs* dtGetThenAdvanceBufferPointer(const unsigned char*& buffer, co
 }
 
 template<typename TypeToRetrieveAs>
-TypeToRetrieveAs* dtGetThenAdvanceBufferPointer(unsigned char*& buffer, const size_t distanceToAdvance)
+TypeToRetrieveAs* dtGetThenAdvanceBufferPointer(uint8_t*& buffer, const size_t distanceToAdvance)
 {
 	TypeToRetrieveAs* returnPointer = reinterpret_cast<TypeToRetrieveAs*>(buffer);
 	buffer += distanceToAdvance;

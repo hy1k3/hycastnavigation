@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
@@ -33,7 +34,7 @@ static int getCornerHeight(int x, int y, int i, int dir,
 	int ch = (int)s.y;
 	int dirp = (dir+1) & 0x3;
 	
-	unsigned int regs[4] = {0,0,0,0};
+	uint32_t regs[4] = {0,0,0,0};
 	
 	// Combine region and area codes in order to prevent
 	// border vertices which are in between two areas to be removed.
@@ -102,17 +103,17 @@ static int getCornerHeight(int x, int y, int i, int dir,
 
 static void walkContour(int x, int y, int i,
 						const rcCompactHeightfield& chf,
-						unsigned char* flags, rcTempVector<int>& points)
+						uint8_t* flags, rcTempVector<int>& points)
 {
 	// Choose the first non-connected edge
-	unsigned char dir = 0;
+	uint8_t dir = 0;
 	while ((flags[i] & (1 << dir)) == 0)
 		dir++;
 	
-	unsigned char startDir = dir;
+	uint8_t startDir = dir;
 	int starti = i;
 	
-	const unsigned char area = chf.areas[i];
+	const uint8_t area = chf.areas[i];
 	
 	int iter = 0;
 	while (++iter < 40000)
@@ -847,7 +848,7 @@ bool rcBuildContours(rcContext* ctx, const rcCompactHeightfield& chf,
 		return false;
 	cset.nconts = 0;
 	
-	rcScopedDelete<unsigned char> flags((unsigned char*)rcAlloc(sizeof(unsigned char)*chf.spanCount, RC_ALLOC_TEMP));
+	rcScopedDelete<uint8_t> flags((uint8_t*)rcAlloc(sizeof(uint8_t)*chf.spanCount, RC_ALLOC_TEMP));
 	if (!flags)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildContours: Out of memory 'flags' (%d).", chf.spanCount);
@@ -864,7 +865,7 @@ bool rcBuildContours(rcContext* ctx, const rcCompactHeightfield& chf,
 			const rcCompactCell& c = chf.cells[x+y*w];
 			for (int i = (int)c.index, ni = (int)(c.index+c.count); i < ni; ++i)
 			{
-				unsigned char res = 0;
+				uint8_t res = 0;
 				const rcCompactSpan& s = chf.spans[i];
 				if (!chf.spans[i].reg || (chf.spans[i].reg & RC_BORDER_REG))
 				{
@@ -873,7 +874,7 @@ bool rcBuildContours(rcContext* ctx, const rcCompactHeightfield& chf,
 				}
 				for (int dir = 0; dir < 4; ++dir)
 				{
-					unsigned short r = 0;
+					uint16_t r = 0;
 					if (rcGetCon(s, dir) != RC_NOT_CONNECTED)
 					{
 						const int ax = x + rcGetDirOffsetX(dir);
@@ -906,10 +907,10 @@ bool rcBuildContours(rcContext* ctx, const rcCompactHeightfield& chf,
 					flags[i] = 0;
 					continue;
 				}
-				const unsigned short reg = chf.spans[i].reg;
+				const uint16_t reg = chf.spans[i].reg;
 				if (!reg || (reg & RC_BORDER_REG))
 					continue;
-				const unsigned char area = chf.areas[i];
+				const uint8_t area = chf.areas[i];
 				
 				verts.clear();
 				simplified.clear();

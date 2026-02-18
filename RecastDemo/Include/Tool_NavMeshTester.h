@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "DetourNavMesh.h"
 #include "DetourNavMeshQuery.h"
 #include "Sample.h"
@@ -54,7 +56,7 @@ class NavMeshTesterTool : public SampleTool
 	dtPolyRef parent[MAX_POLYS];
 	int npolys = 0;
 	float straightPath[MAX_POLYS * 3];
-	unsigned char straightPathFlags[MAX_POLYS];
+	uint8_t straightPathFlags[MAX_POLYS];
 	dtPolyRef straightPathPolys[MAX_POLYS];
 	int nstraightPath = 0;
 	float polyPickExt[3] = {2, 4, 2};
@@ -106,5 +108,5 @@ public:
 	void drawOverlayUI() override;
 
 	void recalc();
-	void drawAgent(const float* pos, float r, float h, float c, const unsigned int col) const;
+	void drawAgent(const float* pos, float r, float h, float c, const uint32_t col) const;
 };

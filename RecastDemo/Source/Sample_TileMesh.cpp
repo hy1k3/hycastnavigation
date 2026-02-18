@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "Sample_TileMesh.h"
 
 #include "DetourDebugDraw.h"
@@ -39,7 +40,7 @@
 
 namespace
 {
-unsigned int nextPow2(unsigned int v)
+uint32_t nextPow2(uint32_t v)
 {
 	v--;
 	v |= v >> 1;
@@ -51,11 +52,11 @@ unsigned int nextPow2(unsigned int v)
 	return v;
 }
 
-unsigned int ilog2(unsigned int v)
+uint32_t ilog2(uint32_t v)
 {
-	unsigned int r = (v > 0xffff) << 4;
+	uint32_t r = (v > 0xffff) << 4;
 	v >>= r;
-	unsigned int shift = (v > 0xff) << 3;
+	uint32_t shift = (v > 0xff) << 3;
 	v >>= shift;
 	r |= shift;
 	shift = (v > 0xf) << 2;
@@ -636,7 +637,7 @@ void Sample_TileMesh::buildTile(const float* pos)
 	buildContext->resetLog();
 
 	int tileMeshDataSize = 0;
-	unsigned char* tileMeshData = buildTileMesh(tileX, tileY, lastBuiltTileBoundsMin, lastBuiltTileBoundsMax, tileMeshDataSize);
+	uint8_t* tileMeshData = buildTileMesh(tileX, tileY, lastBuiltTileBoundsMin, lastBuiltTileBoundsMax, tileMeshDataSize);
 
 	// Remove any previous data (navmesh owns and deletes the data).
 	navMesh->removeTile(navMesh->getTileRefAt(tileX, tileY, 0), 0, 0);
@@ -736,7 +737,7 @@ void Sample_TileMesh::buildAllTiles()
 			lastBuiltTileBoundsMax[2] = navMeshBoundsMin[2] + static_cast<float>(y + 1) * tileCellSize;
 
 			int tileMeshDataSize = 0;
-			unsigned char* tileMeshData = buildTileMesh(x, y, lastBuiltTileBoundsMin, lastBuiltTileBoundsMax, tileMeshDataSize);
+			uint8_t* tileMeshData = buildTileMesh(x, y, lastBuiltTileBoundsMin, lastBuiltTileBoundsMax, tileMeshDataSize);
 			if (!tileMeshData)
 			{
 				continue;
@@ -759,7 +760,7 @@ void Sample_TileMesh::buildAllTiles()
 }
 
 
-unsigned char* Sample_TileMesh::buildTileMesh(
+uint8_t* Sample_TileMesh::buildTileMesh(
 	const int tileX,
 	const int tileY,
 	const float* boundsMin,
@@ -868,7 +869,7 @@ unsigned char* Sample_TileMesh::buildTileMesh(
 	// Allocate array that can hold triangle flags.
 	// If you have multiple meshes you need to process, allocate
 	// and array which can hold the max number of triangles you need to process.
-	triareas = new unsigned char[partitionedMesh.maxTrisPerChunk];
+	triareas = new uint8_t[partitionedMesh.maxTrisPerChunk];
 	if (!triareas)
 	{
 		buildContext->log(RC_LOG_ERROR, "buildNavigation: Out of memory 'triareas' (%d).", partitionedMesh.maxTrisPerChunk);
@@ -898,7 +899,7 @@ unsigned char* Sample_TileMesh::buildTileMesh(
 
 		tileTriCount += numNodeTris;
 
-		memset(triareas, 0, numNodeTris * sizeof(unsigned char));
+		memset(triareas, 0, numNodeTris * sizeof(uint8_t));
 		rcMarkWalkableTriangles(buildContext, config.walkableSlopeAngle, verts, numVerts, nodeTris, numNodeTris, triareas);
 
 		if (!rcRasterizeTriangles(
@@ -967,7 +968,7 @@ unsigned char* Sample_TileMesh::buildTileMesh(
 			vol.nverts,
 			vol.hmin,
 			vol.hmax,
-			static_cast<unsigned char>(vol.area),
+			static_cast<uint8_t>(vol.area),
 			*compactHeightfield);
 	}
 
@@ -1089,7 +1090,7 @@ unsigned char* Sample_TileMesh::buildTileMesh(
 		return 0;
 	}
 
-	unsigned char* navData = 0;
+	uint8_t* navData = 0;
 	int navDataSize = 0;
 	if (config.maxVertsPerPoly <= DT_VERTS_PER_POLYGON)
 	{

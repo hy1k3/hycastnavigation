@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "Recast.h"
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
@@ -336,7 +337,7 @@ static void calcTriNormal(const float* v0, const float* v1, const float* v2, flo
 void rcMarkWalkableTriangles(rcContext* context, const float walkableSlopeAngle,
                              const float* verts, const int numVerts,
                              const int* tris, const int numTris,
-                             unsigned char* triAreaIDs)
+                             uint8_t* triAreaIDs)
 {
 	rcIgnoreUnused(context);
 	rcIgnoreUnused(numVerts);
@@ -360,7 +361,7 @@ void rcMarkWalkableTriangles(rcContext* context, const float walkableSlopeAngle,
 void rcClearUnwalkableTriangles(rcContext* context, const float walkableSlopeAngle,
                                 const float* verts, int numVerts,
                                 const int* tris, int numTris,
-                                unsigned char* triAreaIDs)
+                                uint8_t* triAreaIDs)
 {
 	rcIgnoreUnused(context);
 	rcIgnoreUnused(numVerts);
@@ -437,13 +438,13 @@ bool rcBuildCompactHeightfield(rcContext* context, const int walkableHeight, con
 		return false;
 	}
 	memset(compactHeightfield.spans, 0, sizeof(rcCompactSpan) * spanCount);
-	compactHeightfield.areas = (unsigned char*)rcAlloc(sizeof(unsigned char) * spanCount, RC_ALLOC_PERM);
+	compactHeightfield.areas = (uint8_t*)rcAlloc(sizeof(uint8_t) * spanCount, RC_ALLOC_PERM);
 	if (!compactHeightfield.areas)
 	{
 		context->log(RC_LOG_ERROR, "rcBuildCompactHeightfield: Out of memory 'chf.areas' (%d)", spanCount);
 		return false;
 	}
-	memset(compactHeightfield.areas, RC_NULL_AREA, sizeof(unsigned char) * spanCount);
+	memset(compactHeightfield.areas, RC_NULL_AREA, sizeof(uint8_t) * spanCount);
 
 	const int MAX_HEIGHT = 0xffff;
 
@@ -470,8 +471,8 @@ bool rcBuildCompactHeightfield(rcContext* context, const int walkableHeight, con
 			{
 				const int bot = (int)span->smax;
 				const int top = span->next ? (int)span->next->smin : MAX_HEIGHT;
-				compactHeightfield.spans[currentCellIndex].y = (unsigned short)rcClamp(bot, 0, 0xffff);
-				compactHeightfield.spans[currentCellIndex].h = (unsigned char)rcClamp(top - bot, 0, 0xff);
+				compactHeightfield.spans[currentCellIndex].y = (uint16_t)rcClamp(bot, 0, 0xffff);
+				compactHeightfield.spans[currentCellIndex].h = (uint8_t)rcClamp(top - bot, 0, 0xff);
 				compactHeightfield.areas[currentCellIndex] = span->area;
 				currentCellIndex++;
 				cell.count++;

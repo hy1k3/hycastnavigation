@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include <math.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -65,7 +66,7 @@ bool duDumpPolyMeshToObj(rcPolyMesh& pmesh, duFileIO* io)
 	
 	for (int i = 0; i < pmesh.nverts; ++i)
 	{
-		const unsigned short* v = &pmesh.verts[i*3];
+		const uint16_t* v = &pmesh.verts[i*3];
 		const float x = orig[0] + v[0]*cs;
 		const float y = orig[1] + (v[1]+1)*ch + 0.1f;
 		const float z = orig[2] + v[2]*cs;
@@ -76,7 +77,7 @@ bool duDumpPolyMeshToObj(rcPolyMesh& pmesh, duFileIO* io)
 
 	for (int i = 0; i < pmesh.npolys; ++i)
 	{
-		const unsigned short* p = &pmesh.polys[i*nvp*2];
+		const uint16_t* p = &pmesh.polys[i*nvp*2];
 		for (int j = 2; j < nvp; ++j)
 		{
 			if (p[j] == RC_MESH_NULL_IDX) break;
@@ -115,12 +116,12 @@ bool duDumpPolyMeshDetailToObj(rcPolyMeshDetail& dmesh, duFileIO* io)
 	
 	for (int i = 0; i < dmesh.nmeshes; ++i)
 	{
-		const unsigned int* m = &dmesh.meshes[i*4];
-		const unsigned int bverts = m[0];
-		const unsigned int btris = m[2];
-		const unsigned int ntris = m[3];
-		const unsigned char* tris = &dmesh.tris[btris*4];
-		for (unsigned int j = 0; j < ntris; ++j)
+		const uint32_t* m = &dmesh.meshes[i*4];
+		const uint32_t bverts = m[0];
+		const uint32_t btris = m[2];
+		const uint32_t ntris = m[3];
+		const uint8_t* tris = &dmesh.tris[btris*4];
+		for (uint32_t j = 0; j < ntris; ++j)
 		{
 			ioprintf(io, "f %d %d %d\n",
 					(int)(bverts+tris[j*4+0])+1,
@@ -305,9 +306,9 @@ bool duDumpCompactHeightfield(struct rcCompactHeightfield& chf, duFileIO* io)
 	if (chf.spans)
 		io->write(chf.spans, sizeof(rcCompactSpan)*chf.spanCount);
 	if (chf.dist)
-		io->write(chf.dist, sizeof(unsigned short)*chf.spanCount);
+		io->write(chf.dist, sizeof(uint16_t)*chf.spanCount);
 	if (chf.areas)
-		io->write(chf.areas, sizeof(unsigned char)*chf.spanCount);
+		io->write(chf.areas, sizeof(uint8_t)*chf.spanCount);
 
 	return true;
 }
@@ -384,23 +385,23 @@ bool duReadCompactHeightfield(struct rcCompactHeightfield& chf, duFileIO* io)
 	}
 	if (tmp & 4)
 	{
-		chf.dist = (unsigned short*)rcAlloc(sizeof(unsigned short)*chf.spanCount, RC_ALLOC_PERM);
+		chf.dist = (uint16_t*)rcAlloc(sizeof(uint16_t)*chf.spanCount, RC_ALLOC_PERM);
 		if (!chf.dist)
 		{
 			printf("duReadCompactHeightfield: Could not alloc dist (%d)\n", chf.spanCount);
 			return false;
 		}
-		io->read(chf.dist, sizeof(unsigned short)*chf.spanCount);
+		io->read(chf.dist, sizeof(uint16_t)*chf.spanCount);
 	}
 	if (tmp & 8)
 	{
-		chf.areas = (unsigned char*)rcAlloc(sizeof(unsigned char)*chf.spanCount, RC_ALLOC_PERM);
+		chf.areas = (uint8_t*)rcAlloc(sizeof(uint8_t)*chf.spanCount, RC_ALLOC_PERM);
 		if (!chf.areas)
 		{
 			printf("duReadCompactHeightfield: Could not alloc areas (%d)\n", chf.spanCount);
 			return false;
 		}
-		io->read(chf.areas, sizeof(unsigned char)*chf.spanCount);
+		io->read(chf.areas, sizeof(uint8_t)*chf.spanCount);
 	}
 	
 	return true;

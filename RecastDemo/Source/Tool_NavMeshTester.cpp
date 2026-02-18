@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "Tool_NavMeshTester.h"
 
 #include "DetourCommon.h"
@@ -112,7 +113,7 @@ int fixupShortcuts(dtPolyRef* path, int npath, dtNavMeshQuery* navQuery)
 	const dtPoly* poly = 0;
 	if (dtStatusFailed(navQuery->getAttachedNavMesh()->getTileAndPolyByRef(path[0], &tile, &poly))) { return npath; }
 
-	for (unsigned int k = poly->firstLink; k != DT_NULL_LINK; k = tile->links[k].next)
+	for (uint32_t k = poly->firstLink; k != DT_NULL_LINK; k = tile->links[k].next)
 	{
 		const dtLink* link = &tile->links[k];
 		if (link->ref != 0)
@@ -159,7 +160,7 @@ bool getSteerTarget(dtNavMeshQuery* navQuery,
 	const dtPolyRef* path,
 	const int pathSize,
 	float* steerPos,
-	unsigned char& steerPosFlag,
+	uint8_t& steerPosFlag,
 	dtPolyRef& steerPosRef,
 	float* outPoints = 0,
 	int* outPointCount = 0)
@@ -167,7 +168,7 @@ bool getSteerTarget(dtNavMeshQuery* navQuery,
 	// Find steer target.
 	static const int MAX_STEER_POINTS = 3;
 	float steerPath[MAX_STEER_POINTS * 3];
-	unsigned char steerPathFlags[MAX_STEER_POINTS];
+	uint8_t steerPathFlags[MAX_STEER_POINTS];
 	dtPolyRef steerPathPolys[MAX_STEER_POINTS];
 	int nsteerPath = 0;
 	navQuery->findStraightPath(
@@ -527,7 +528,7 @@ void NavMeshTesterTool::onToggle()
 
 	// Find location to steer towards.
 	float steerPos[3];
-	unsigned char steerPosFlag;
+	uint8_t steerPosFlag;
 	dtPolyRef steerPosRef;
 
 	if (!getSteerTarget(
@@ -765,7 +766,7 @@ void NavMeshTesterTool::recalc()
 				{
 					// Find location to steer towards.
 					float steerPos[3];
-					unsigned char steerPosFlag;
+					uint8_t steerPosFlag;
 					dtPolyRef steerPosRef;
 
 					if (!getSteerTarget(
@@ -1109,9 +1110,9 @@ void NavMeshTesterTool::render()
 {
 	duDebugDraw& dd = sample->debugDraw;
 
-	static const unsigned int startCol = duRGBA(128, 25, 0, 192);
-	static const unsigned int endCol = duRGBA(51, 102, 0, 129);
-	static const unsigned int pathCol = duRGBA(0, 0, 0, 64);
+	static const uint32_t startCol = duRGBA(128, 25, 0, 192);
+	static const uint32_t endCol = duRGBA(51, 102, 0, 129);
+	static const uint32_t pathCol = duRGBA(0, 0, 0, 64);
 
 	const float agentRadius = sample->agentRadius;
 	const float agentHeight = sample->agentHeight;
@@ -1155,7 +1156,7 @@ void NavMeshTesterTool::render()
 		if (nsmoothPath)
 		{
 			dd.depthMask(false);
-			const unsigned int spathCol = duRGBA(0, 0, 0, 220);
+			const uint32_t spathCol = duRGBA(0, 0, 0, 220);
 			dd.begin(DU_DRAW_LINES, 3.0f);
 			for (int i = 0; i < nsmoothPath; ++i)
 			{
@@ -1172,9 +1173,9 @@ void NavMeshTesterTool::render()
 			dd.depthMask(false);
 			dd.begin(DU_DRAW_LINES, 1.0f);
 
-			const unsigned int prevCol = duRGBA(255, 192, 0, 220);
-			const unsigned int curCol = duRGBA(255, 255, 255, 220);
-			const unsigned int steerCol = duRGBA(0, 192, 255, 220);
+			const uint32_t prevCol = duRGBA(255, 192, 0, 220);
+			const uint32_t curCol = duRGBA(255, 255, 255, 220);
+			const uint32_t steerCol = duRGBA(0, 192, 255, 220);
 
 			dd.vertex(prevIterPos[0], prevIterPos[1] - 0.3f, prevIterPos[2], prevCol);
 			dd.vertex(prevIterPos[0], prevIterPos[1] + 0.3f, prevIterPos[2], prevCol);
@@ -1224,12 +1225,12 @@ void NavMeshTesterTool::render()
 		if (nstraightPath)
 		{
 			dd.depthMask(false);
-			const unsigned int spathCol = duRGBA(64, 16, 0, 220);
-			const unsigned int offMeshCol = duRGBA(128, 96, 0, 220);
+			const uint32_t spathCol = duRGBA(64, 16, 0, 220);
+			const uint32_t offMeshCol = duRGBA(128, 96, 0, 220);
 			dd.begin(DU_DRAW_LINES, 2.0f);
 			for (int i = 0; i < nstraightPath - 1; ++i)
 			{
-				unsigned int col;
+				uint32_t col;
 				if (straightPathFlags[i] & DT_STRAIGHTPATH_OFFMESH_CONNECTION)
 				{
 					col = offMeshCol;
@@ -1246,7 +1247,7 @@ void NavMeshTesterTool::render()
 			dd.begin(DU_DRAW_POINTS, 6.0f);
 			for (int i = 0; i < nstraightPath; ++i)
 			{
-				unsigned int col;
+				uint32_t col;
 				if (straightPathFlags[i] & DT_STRAIGHTPATH_START)
 				{
 					col = startCol;
@@ -1282,7 +1283,7 @@ void NavMeshTesterTool::render()
 			}
 
 			dd.depthMask(false);
-			const unsigned int spathCol = hitResult ? duRGBA(64, 16, 0, 220) : duRGBA(240, 240, 240, 220);
+			const uint32_t spathCol = hitResult ? duRGBA(64, 16, 0, 220) : duRGBA(240, 240, 240, 220);
 			dd.begin(DU_DRAW_LINES, 2.0f);
 			for (int i = 0; i < nstraightPath - 1; ++i)
 			{
@@ -1303,7 +1304,7 @@ void NavMeshTesterTool::render()
 
 			if (hitResult)
 			{
-				const unsigned int hitCol = duRGBA(0, 0, 0, 128);
+				const uint32_t hitCol = duRGBA(0, 0, 0, 128);
 				dd.begin(DU_DRAW_LINES, 2.0f);
 				dd.vertex(hitPos[0], hitPos[1] + 0.4f, hitPos[2], hitCol);
 				dd.vertex(
@@ -1379,7 +1380,7 @@ void NavMeshTesterTool::render()
 		if (sposSet && eposSet)
 		{
 			dd.depthMask(false);
-			const unsigned int col = duRGBA(64, 16, 0, 220);
+			const uint32_t col = duRGBA(64, 16, 0, 220);
 			dd.begin(DU_DRAW_LINES, 2.0f);
 			for (int i = 0, j = 3; i < 4; j = i++)
 			{
@@ -1443,13 +1444,13 @@ void NavMeshTesterTool::render()
 				// Skip backfacing segments.
 				if (refs[j])
 				{
-					unsigned int col = duRGBA(255, 255, 255, 32);
+					uint32_t col = duRGBA(255, 255, 255, 32);
 					dd.vertex(s[0], s[1] + agentClimb, s[2], col);
 					dd.vertex(s[3], s[4] + agentClimb, s[5], col);
 				}
 				else
 				{
-					unsigned int col = duRGBA(192, 32, 16, 192);
+					uint32_t col = duRGBA(192, 32, 16, 192);
 					if (dtTriArea2D(spos, s, s + 3) < 0.0f)
 					{
 						col = duRGBA(96, 32, 16, 192);
@@ -1524,7 +1525,7 @@ void NavMeshTesterTool::drawOverlayUI()
 	DrawScreenspaceText(280, 40, IM_COL32(255, 255, 255, 192), "LMB+SHIFT: Set start location  LMB: Set end location");
 }
 
-void NavMeshTesterTool::drawAgent(const float* pos, float r, float h, float c, const unsigned int col) const
+void NavMeshTesterTool::drawAgent(const float* pos, float r, float h, float c, const uint32_t col) const
 {
 	duDebugDraw& draw = sample->debugDraw;
 
@@ -1535,7 +1536,7 @@ void NavMeshTesterTool::drawAgent(const float* pos, float r, float h, float c, c
 
 	duDebugDrawCircle(&draw, pos[0], pos[1] + c, pos[2], r, duRGBA(0, 0, 0, 64), 1.0f);
 
-	const unsigned int color = duRGBA(0, 0, 0, 196);
+	const uint32_t color = duRGBA(0, 0, 0, 196);
 	draw.begin(DU_DRAW_LINES);
 	draw.vertex(pos[0], pos[1] - c, pos[2], color);
 	draw.vertex(pos[0], pos[1] + c, pos[2], color);

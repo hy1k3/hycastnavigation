@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "SampleInterfaces.h"
 
 #include "SDL_opengl.h"
@@ -139,7 +140,7 @@ const char* BuildContext::getLogText(const int i) const
 
 class GLCheckerTexture
 {
-	unsigned int textureId = 0;
+	uint32_t textureId = 0;
 
 public:
 	~GLCheckerTexture()
@@ -159,10 +160,10 @@ public:
 		else
 		{
 			// Create checker pattern.
-			const unsigned int col0 = duRGBA(215, 215, 215, 255);
-			const unsigned int col1 = duRGBA(255, 255, 255, 255);
+			const uint32_t col0 = duRGBA(215, 215, 215, 255);
+			const uint32_t col1 = duRGBA(255, 255, 255, 255);
 			static const int TSIZE = 64;
-			unsigned int data[TSIZE * TSIZE];
+			uint32_t data[TSIZE * TSIZE];
 
 			glGenTextures(1, &textureId);
 			glBindTexture(GL_TEXTURE_2D, textureId);
@@ -229,26 +230,26 @@ void DebugDrawGL::begin(duDebugDrawPrimitives prim, float size)
 	}
 }
 
-void DebugDrawGL::vertex(const float* pos, unsigned int color)
+void DebugDrawGL::vertex(const float* pos, uint32_t color)
 {
 	glColor4ubv((GLubyte*)&color);
 	glVertex3fv(pos);
 }
 
-void DebugDrawGL::vertex(const float x, const float y, const float z, unsigned int color)
+void DebugDrawGL::vertex(const float x, const float y, const float z, uint32_t color)
 {
 	glColor4ubv((GLubyte*)&color);
 	glVertex3f(x, y, z);
 }
 
-void DebugDrawGL::vertex(const float* pos, unsigned int color, const float* uv)
+void DebugDrawGL::vertex(const float* pos, uint32_t color, const float* uv)
 {
 	glColor4ubv((GLubyte*)&color);
 	glTexCoord2fv(uv);
 	glVertex3fv(pos);
 }
 
-void DebugDrawGL::vertex(const float x, const float y, const float z, unsigned int color, const float u, const float v)
+void DebugDrawGL::vertex(const float x, const float y, const float z, uint32_t color, const float u, const float v)
 {
 	glColor4ubv((GLubyte*)&color);
 	glTexCoord2f(u, v);

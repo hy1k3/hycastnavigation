@@ -40,8 +40,8 @@ class TestCase
 		float nspos[3]{};
 		float nepos[3]{};
 		float radius = 0;
-		unsigned short includeFlags = 0;
-		unsigned short excludeFlags = 0;
+		uint16_t includeFlags = 0;
+		uint16_t excludeFlags = 0;
 		bool expand = false;
 
 		std::vector<float> straight {};

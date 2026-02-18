@@ -31,7 +31,7 @@ private:
 
 	// Recast state
 	rcConfig config{};
-	unsigned char* triareas = nullptr;
+	uint8_t* triareas = nullptr;
 	rcHeightfield* heightfield = nullptr;
 	rcCompactHeightfield* compactHeightfield = nullptr;
 	rcContourSet* contourSet = nullptr;
@@ -67,14 +67,14 @@ private:
 	/// In cells
 	int tileSize = 32;
 
-	unsigned int tileColor = duRGBA(0, 0, 0, 32);
+	uint32_t tileColor = duRGBA(0, 0, 0, 32);
 	float lastBuiltTileBoundsMin[3] = {0.0f, 0.0f, 0.0f};
 	float lastBuiltTileBoundsMax[3] = {0.0f, 0.0f, 0.0f};
 	float tileBuildTime = 0.0f;
 	float tileMemUsage = 0.0f;
 	int tileTriCount = 0;
 
-	unsigned char* buildTileMesh(int tileX, int tileY, const float* boundsMin, const float* boundsMax, int& outDataSize);
+	uint8_t* buildTileMesh(int tileX, int tileY, const float* boundsMin, const float* boundsMax, int& outDataSize);
 
 	void cleanup();
 	void UI_DrawModeOption(DrawMode drawMode, bool enabled);

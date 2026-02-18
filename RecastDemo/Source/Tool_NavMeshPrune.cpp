@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "Tool_NavMeshPrune.h"
 
 #include "DetourCommon.h"
@@ -27,7 +28,7 @@
 
 namespace
 {
-void floodNavmesh(const dtNavMesh* navmesh, NavmeshFlags* flags, const dtPolyRef start, const unsigned char flag)
+void floodNavmesh(const dtNavMesh* navmesh, NavmeshFlags* flags, const dtPolyRef start, const uint8_t flag)
 {
 	// If already visited, skip.
 	if (flags->getFlags(start))
@@ -52,7 +53,7 @@ void floodNavmesh(const dtNavMesh* navmesh, NavmeshFlags* flags, const dtPolyRef
 		navmesh->getTileAndPolyByRefUnsafe(ref, &tile, &poly);
 
 		// Visit linked polygons.
-		for (unsigned int i = poly->firstLink; i != DT_NULL_LINK; i = tile->links[i].next)
+		for (uint32_t i = poly->firstLink; i != DT_NULL_LINK; i = tile->links[i].next)
 		{
 			const dtPolyRef neiRef = tile->links[i].ref;
 			// Skip invalid and already visited.
@@ -81,10 +82,10 @@ void disableUnvisitedPolys(dtNavMesh* nav, NavmeshFlags* flags)
 		const dtPolyRef base = nav->getPolyRefBase(tile);
 		for (int j = 0; j < tile->header->polyCount; ++j)
 		{
-			const dtPolyRef ref = base | static_cast<unsigned int>(j);
+			const dtPolyRef ref = base | static_cast<uint32_t>(j);
 			if (!flags->getFlags(ref))
 			{
-				unsigned short f = 0;
+				uint16_t f = 0;
 				nav->getPolyFlags(ref, &f);
 				nav->setPolyFlags(ref, f | SAMPLE_POLYFLAGS_DISABLED);
 			}
@@ -129,26 +130,26 @@ void NavmeshFlags::clearAllFlags()
 	}
 }
 
-[[nodiscard]] unsigned char NavmeshFlags::getFlags(const dtPolyRef ref) const
+[[nodiscard]] uint8_t NavmeshFlags::getFlags(const dtPolyRef ref) const
 {
 	dtAssert(navmesh != nullptr);
 	dtAssert(!tileFlags.empty());
 	// Assume the ref is valid, no bounds checks.
-	unsigned int salt;
-	unsigned int it;
-	unsigned int ip;
+	uint32_t salt;
+	uint32_t it;
+	uint32_t ip;
 	navmesh->decodePolyId(ref, salt, it, ip);
 	return tileFlags[it][ip];
 }
 
-void NavmeshFlags::setFlags(const dtPolyRef ref, const unsigned char flags)
+void NavmeshFlags::setFlags(const dtPolyRef ref, const uint8_t flags)
 {
 	dtAssert(navmesh != nullptr);
 	dtAssert(!tileFlags.empty());
 	// Assume the ref is valid, no bounds checks.
-	unsigned int salt;
-	unsigned int it;
-	unsigned int ip;
+	uint32_t salt;
+	uint32_t it;
+	uint32_t ip;
 	navmesh->decodePolyId(ref, salt, it, ip);
 	tileFlags[it][ip] = flags;
 }
@@ -243,7 +244,7 @@ void NavMeshPruneTool::render()
 	if (hitPosSet)
 	{
 		const float radius = sample->agentRadius;
-		const unsigned int color = duRGBA(255, 255, 255, 255);
+		const uint32_t color = duRGBA(255, 255, 255, 255);
 		debugDraw.begin(DU_DRAW_LINES);
 		debugDraw.vertex(hitPos[0] - radius, hitPos[1], hitPos[2], color);
 		debugDraw.vertex(hitPos[0] + radius, hitPos[1], hitPos[2], color);
@@ -267,7 +268,7 @@ void NavMeshPruneTool::render()
 			const dtPolyRef base = navmesh->getPolyRefBase(tile);
 			for (int j = 0; j < tile->header->polyCount; ++j)
 			{
-				const dtPolyRef ref = base | static_cast<unsigned int>(j);
+				const dtPolyRef ref = base | static_cast<uint32_t>(j);
 				if (flags->getFlags(ref))
 				{
 					duDebugDrawNavMeshPoly(&debugDraw, *navmesh, ref, duRGBA(255, 255, 255, 128));

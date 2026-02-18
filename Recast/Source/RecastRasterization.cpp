@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include <math.h>
 #include "Recast.h"
 #include "RecastAlloc.h"
@@ -104,8 +105,8 @@ static void freeSpan(rcHeightfield& heightfield, rcSpan* span)
 /// @param[in]	flagMergeThreshold	How close two spans maximum extents need to be to merge area type IDs
 static bool addSpan(rcHeightfield& heightfield,
                     const int x, const int z,
-                    const unsigned short min, const unsigned short max,
-                    const unsigned char areaID, const int flagMergeThreshold)
+                    const uint16_t min, const uint16_t max,
+                    const uint8_t areaID, const int flagMergeThreshold)
 {
 	// Create the new span.
 	rcSpan* newSpan = allocSpan(heightfield);
@@ -190,8 +191,8 @@ static bool addSpan(rcHeightfield& heightfield,
 
 bool rcAddSpan(rcContext* context, rcHeightfield& heightfield,
                const int x, const int z,
-               const unsigned short spanMin, const unsigned short spanMax,
-               const unsigned char areaID, const int flagMergeThreshold)
+               const uint16_t spanMin, const uint16_t spanMax,
+               const uint8_t areaID, const int flagMergeThreshold)
 {
 	rcAssert(context);
 
@@ -311,7 +312,7 @@ static void dividePoly(const float* inVerts, int inVertsCount,
 /// @param[in] 	flagMergeThreshold	The threshold in which area flags will be merged 
 /// @returns true if the operation completes successfully.  false if there was an error adding spans to the heightfield.
 static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
-                         const unsigned char areaID, rcHeightfield& heightfield,
+                         const uint8_t areaID, rcHeightfield& heightfield,
                          const float* heightfieldBBMin, const float* heightfieldBBMax,
                          const float cellSize, const float inverseCellSize, const float inverseCellHeight,
                          const int flagMergeThreshold)
@@ -448,8 +449,8 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
 			}
 
 			// Snap the span to the heightfield height grid.
-			unsigned short spanMinCellIndex = (unsigned short)rcClamp((int)floorf(spanMin * inverseCellHeight), 0, RC_SPAN_MAX_HEIGHT);
-			unsigned short spanMaxCellIndex = (unsigned short)rcClamp((int)ceilf(spanMax * inverseCellHeight), (int)spanMinCellIndex + 1, RC_SPAN_MAX_HEIGHT);
+			uint16_t spanMinCellIndex = (uint16_t)rcClamp((int)floorf(spanMin * inverseCellHeight), 0, RC_SPAN_MAX_HEIGHT);
+			uint16_t spanMaxCellIndex = (uint16_t)rcClamp((int)ceilf(spanMax * inverseCellHeight), (int)spanMinCellIndex + 1, RC_SPAN_MAX_HEIGHT);
 
 			if (!addSpan(heightfield, x, z, spanMinCellIndex, spanMaxCellIndex, areaID, flagMergeThreshold))
 			{
@@ -463,7 +464,7 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
 
 bool rcRasterizeTriangle(rcContext* context,
                          const float* v0, const float* v1, const float* v2,
-                         const unsigned char areaID, rcHeightfield& heightfield, const int flagMergeThreshold)
+                         const uint8_t areaID, rcHeightfield& heightfield, const int flagMergeThreshold)
 {
 	rcAssert(context != NULL);
 
@@ -483,7 +484,7 @@ bool rcRasterizeTriangle(rcContext* context,
 
 bool rcRasterizeTriangles(rcContext* context,
                           const float* verts, const int /*nv*/,
-                          const int* tris, const unsigned char* triAreaIDs, const int numTris,
+                          const int* tris, const uint8_t* triAreaIDs, const int numTris,
                           rcHeightfield& heightfield, const int flagMergeThreshold)
 {
 	rcAssert(context != NULL);
@@ -510,7 +511,7 @@ bool rcRasterizeTriangles(rcContext* context,
 
 bool rcRasterizeTriangles(rcContext* context,
                           const float* verts, const int /*nv*/,
-                          const unsigned short* tris, const unsigned char* triAreaIDs, const int numTris,
+                          const uint16_t* tris, const uint8_t* triAreaIDs, const int numTris,
                           rcHeightfield& heightfield, const int flagMergeThreshold)
 {
 	rcAssert(context != NULL);
@@ -536,7 +537,7 @@ bool rcRasterizeTriangles(rcContext* context,
 }
 
 bool rcRasterizeTriangles(rcContext* context,
-                          const float* verts, const unsigned char* triAreaIDs, const int numTris,
+                          const float* verts, const uint8_t* triAreaIDs, const int numTris,
                           rcHeightfield& heightfield, const int flagMergeThreshold)
 {
 	rcAssert(context != NULL);

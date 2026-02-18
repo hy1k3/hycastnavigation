@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <string>
 #include <vector>
 
@@ -53,4 +55,4 @@ struct GraphParams
 };
 
 void drawGraphBackground(const GraphParams* p);
-void drawGraph(const GraphParams* params, const ValueHistory* graph, int index, const char* label, const unsigned int color);
+void drawGraph(const GraphParams* params, const ValueHistory* graph, int index, const char* label, const uint32_t color);

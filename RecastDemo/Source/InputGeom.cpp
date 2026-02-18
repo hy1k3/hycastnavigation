@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "InputGeom.h"
 
 #include "PartitionedMesh.h"
@@ -444,9 +445,9 @@ bool InputGeom::loadGeomSet(rcContext* ctx, char* buffer, size_t bufferLen)
 				startPos,
 				endPos,
 				rad,
-				static_cast<unsigned char>(bidir),
-				static_cast<unsigned char>(area),
-				static_cast<unsigned short>(flags));
+				static_cast<uint8_t>(bidir),
+				static_cast<uint8_t>(area),
+				static_cast<uint16_t>(flags));
 		}
 		else if (row[0] == 'v')
 		{
@@ -650,9 +651,9 @@ void InputGeom::addOffMeshConnection(
 	const float* startPos,
 	const float* endPos,
 	const float radius,
-	unsigned char bidirectional,
-	unsigned char area,
-	unsigned short flags)
+	uint8_t bidirectional,
+	uint8_t area,
+	uint16_t flags)
 {
 	offmeshConnVerts.resize(offmeshConnVerts.size() + 3 * 2);
 	float* v = &offmeshConnVerts[offmeshConnVerts.size() - 3 * 2];
@@ -662,7 +663,7 @@ void InputGeom::addOffMeshConnection(
 	offmeshConnBidirectional.emplace_back(bidirectional);
 	offmeshConnArea.emplace_back(area);
 	offmeshConnFlags.emplace_back(flags);
-	offmeshConnId.emplace_back(1000 + (static_cast<unsigned int>(offmeshConnArea.size()) - 1));
+	offmeshConnId.emplace_back(1000 + (static_cast<uint32_t>(offmeshConnArea.size()) - 1));
 }
 
 void InputGeom::deleteOffMeshConnection(int i)
@@ -677,8 +678,8 @@ void InputGeom::deleteOffMeshConnection(int i)
 
 void InputGeom::drawOffMeshConnections(duDebugDraw* dd, bool highlight)
 {
-	unsigned int conColor = duRGBA(192, 0, 128, 192);
-	unsigned int baseColor = duRGBA(0, 0, 0, 64);
+	uint32_t conColor = duRGBA(192, 0, 128, 192);
+	uint32_t baseColor = duRGBA(0, 0, 0, 64);
 	dd->depthMask(false);
 
 	dd->begin(DU_DRAW_LINES, 2.0f);
@@ -716,7 +717,7 @@ void InputGeom::drawOffMeshConnections(duDebugDraw* dd, bool highlight)
 	dd->depthMask(true);
 }
 
-void InputGeom::addConvexVolume(const float* verts, const int nverts, const float minh, const float maxh, unsigned char area)
+void InputGeom::addConvexVolume(const float* verts, const int nverts, const float minh, const float maxh, uint8_t area)
 {
 	ConvexVolume vol;
 	memcpy(vol.verts, verts, sizeof(float) * 3 * nverts);
@@ -739,7 +740,7 @@ void InputGeom::drawConvexVolumes(struct duDebugDraw* dd)
 
 	for (const ConvexVolume& vol : convexVolumes)
 	{
-		unsigned int col = duTransCol(dd->areaToCol(vol.area), 32);
+		uint32_t col = duTransCol(dd->areaToCol(vol.area), 32);
 		for (int j = 0, k = vol.nverts - 1; j < vol.nverts; k = j++)
 		{
 			const float* va = &vol.verts[k * 3];
@@ -764,7 +765,7 @@ void InputGeom::drawConvexVolumes(struct duDebugDraw* dd)
 	dd->begin(DU_DRAW_LINES, 2.0f);
 	for (const ConvexVolume& vol : convexVolumes)
 	{
-		unsigned int col = duTransCol(dd->areaToCol(vol.area), 220);
+		uint32_t col = duTransCol(dd->areaToCol(vol.area), 220);
 		for (int j = 0, k = vol.nverts - 1; j < vol.nverts; k = j++)
 		{
 			const float* va = &vol.verts[k * 3];
@@ -782,7 +783,7 @@ void InputGeom::drawConvexVolumes(struct duDebugDraw* dd)
 	dd->begin(DU_DRAW_POINTS, 3.0f);
 	for (const ConvexVolume& vol : convexVolumes)
 	{
-		unsigned int col = duDarkenCol(duTransCol(dd->areaToCol(vol.area), 220));
+		uint32_t col = duDarkenCol(duTransCol(dd->areaToCol(vol.area), 220));
 		for (int j = 0; j < vol.nverts; ++j)
 		{
 			dd->vertex(vol.verts[j * 3 + 0], vol.verts[j * 3 + 1] + 0.1f, vol.verts[j * 3 + 2], col);

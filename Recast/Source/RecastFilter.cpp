@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "Recast.h"
 #include "RecastAssert.h"
 
@@ -41,7 +42,7 @@ void rcFilterLowHangingWalkableObstacles(rcContext* context, const int walkableC
 		{
 			rcSpan* previousSpan = NULL;
 			bool previousWasWalkable = false;
-			unsigned char previousAreaID = RC_NULL_AREA;
+			uint8_t previousAreaID = RC_NULL_AREA;
 
 			// For each span in the column...
 			for (rcSpan* span = heightfield.spans[x + z * xSize]; span != NULL; previousSpan = span, span = span->next)

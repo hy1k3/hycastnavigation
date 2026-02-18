@@ -74,7 +74,7 @@ enum class SamplePartitionType : uint8_t
 class SampleDebugDraw : public DebugDrawGL
 {
 public:
-	unsigned int areaToCol(unsigned int area) override;
+	uint32_t areaToCol(uint32_t area) override;
 };
 
 struct SampleTool
@@ -116,7 +116,7 @@ public:
 	dtNavMeshQuery* navQuery = nullptr;
 	SampleDebugDraw debugDraw;
 
-	unsigned char navMeshDrawFlags;
+	uint8_t navMeshDrawFlags;
 
 	float cellSize;
 	float cellHeight;

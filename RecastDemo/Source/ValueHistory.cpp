@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "ValueHistory.h"
 
 #ifdef WIN32
@@ -93,7 +94,7 @@ void drawGraphBackground(const GraphParams* params)
 #endif
 }
 
-void drawGraph(const GraphParams* params, const ValueHistory* graph, int index, const char* label, const unsigned int color)
+void drawGraph(const GraphParams* params, const ValueHistory* graph, int index, const char* label, const uint32_t color)
 {
 	(void)params;
 	(void)graph;

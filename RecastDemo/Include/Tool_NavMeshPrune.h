@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "DetourAssert.h"
 #include "DetourNavMesh.h"
 #include "Sample.h"
@@ -25,13 +27,13 @@
 class NavmeshFlags
 {
 	const dtNavMesh* navmesh = nullptr;
-	std::vector<std::vector<unsigned char>> tileFlags;
+	std::vector<std::vector<uint8_t>> tileFlags;
 
 public:
 	void init(const dtNavMesh* newNavmesh);
 	void clearAllFlags();
-	[[nodiscard]] unsigned char getFlags(dtPolyRef ref) const;
-	void setFlags(dtPolyRef ref, unsigned char flags);
+	[[nodiscard]] uint8_t getFlags(dtPolyRef ref) const;
+	void setFlags(dtPolyRef ref, uint8_t flags);
 };
 
 /// Prune navmesh to only accessible locations from a point.

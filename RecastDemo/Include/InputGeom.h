@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "PartitionedMesh.h"
 
 #include <string>
@@ -110,10 +112,10 @@ public:
 	///@{
 	std::vector<float> offmeshConnVerts;
 	std::vector<float> offmeshConnRadius;
-	std::vector<unsigned char> offmeshConnBidirectional;
-	std::vector<unsigned char> offmeshConnArea;
-	std::vector<unsigned short> offmeshConnFlags;
-	std::vector<unsigned int> offmeshConnId;
+	std::vector<uint8_t> offmeshConnBidirectional;
+	std::vector<uint8_t> offmeshConnArea;
+	std::vector<uint16_t> offmeshConnFlags;
+	std::vector<uint32_t> offmeshConnId;
 	///@}
 
 	std::vector<ConvexVolume> convexVolumes;
@@ -129,14 +131,14 @@ public:
 
 	/// @name Off-Mesh connections.
 	///@{
-	void addOffMeshConnection(const float* startPos, const float* endPos, float radius, unsigned char bidirectional, unsigned char area, unsigned short flags);
+	void addOffMeshConnection(const float* startPos, const float* endPos, float radius, uint8_t bidirectional, uint8_t area, uint16_t flags);
 	void deleteOffMeshConnection(int i);
 	void drawOffMeshConnections(duDebugDraw* dd, bool highlight = false);
 	///@}
 
 	/// @name Box Volumes.
 	///@{
-	void addConvexVolume(const float* verts, int nverts, float minh, float maxh, unsigned char area);
+	void addConvexVolume(const float* verts, int nverts, float minh, float maxh, uint8_t area);
 	void deleteConvexVolume(int i);
 	void drawConvexVolumes(duDebugDraw* dd);
 	///@}

@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include "Tool_ConvexVolume.h"
 
 #include "InputGeom.h"
@@ -209,12 +210,12 @@ void ConvexVolumeTool::onClick(const float* /*s*/, const float* p, bool shift)
 					int noffset = rcOffsetPoly(verts, numHull, polyOffset, offset, MAX_PTS * 2);
 					if (noffset > 0)
 					{
-						geom->addConvexVolume(offset, noffset, minh, maxh, (unsigned char)areaType);
+						geom->addConvexVolume(offset, noffset, minh, maxh, (uint8_t)areaType);
 					}
 				}
 				else
 				{
-					geom->addConvexVolume(verts, numHull, minh, maxh, (unsigned char)areaType);
+					geom->addConvexVolume(verts, numHull, minh, maxh, (uint8_t)areaType);
 				}
 			}
 
@@ -255,7 +256,7 @@ void ConvexVolumeTool::render()
 	dd.begin(DU_DRAW_POINTS, 4.0f);
 	for (int i = 0; i < numPoints(); ++i)
 	{
-		unsigned int col = duRGBA(255, 255, 255, 255);
+		uint32_t col = duRGBA(255, 255, 255, 255);
 		if (i == numPoints() - 1)
 		{
 			col = duRGBA(240, 32, 16, 255);

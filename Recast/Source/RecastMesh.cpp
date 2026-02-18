@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#include <cstdint>
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
@@ -25,22 +26,22 @@
 
 struct rcEdge
 {
-	unsigned short vert[2];
-	unsigned short polyEdge[2];
-	unsigned short poly[2];
+	uint16_t vert[2];
+	uint16_t polyEdge[2];
+	uint16_t poly[2];
 };
 
-static bool buildMeshAdjacency(unsigned short* polys, const int npolys,
+static bool buildMeshAdjacency(uint16_t* polys, const int npolys,
 							   const int nverts, const int vertsPerPoly)
 {
 	// Based on code by Eric Lengyel from:
 	// https://web.archive.org/web/20080704083314/http://www.terathon.com/code/edges.php
 	
 	int maxEdgeCount = npolys*vertsPerPoly;
-	unsigned short* firstEdge = (unsigned short*)rcAlloc(sizeof(unsigned short)*(nverts + maxEdgeCount), RC_ALLOC_TEMP);
+	uint16_t* firstEdge = (uint16_t*)rcAlloc(sizeof(uint16_t)*(nverts + maxEdgeCount), RC_ALLOC_TEMP);
 	if (!firstEdge)
 		return false;
-	unsigned short* nextEdge = firstEdge + nverts;
+	uint16_t* nextEdge = firstEdge + nverts;
 	int edgeCount = 0;
 	
 	rcEdge* edges = (rcEdge*)rcAlloc(sizeof(rcEdge)*maxEdgeCount, RC_ALLOC_TEMP);
@@ -55,24 +56,24 @@ static bool buildMeshAdjacency(unsigned short* polys, const int npolys,
 	
 	for (int i = 0; i < npolys; ++i)
 	{
-		unsigned short* t = &polys[i*vertsPerPoly*2];
+		uint16_t* t = &polys[i*vertsPerPoly*2];
 		for (int j = 0; j < vertsPerPoly; ++j)
 		{
 			if (t[j] == RC_MESH_NULL_IDX) break;
-			unsigned short v0 = t[j];
-			unsigned short v1 = (j+1 >= vertsPerPoly || t[j+1] == RC_MESH_NULL_IDX) ? t[0] : t[j+1];
+			uint16_t v0 = t[j];
+			uint16_t v1 = (j+1 >= vertsPerPoly || t[j+1] == RC_MESH_NULL_IDX) ? t[0] : t[j+1];
 			if (v0 < v1)
 			{
 				rcEdge& edge = edges[edgeCount];
 				edge.vert[0] = v0;
 				edge.vert[1] = v1;
-				edge.poly[0] = (unsigned short)i;
-				edge.polyEdge[0] = (unsigned short)j;
-				edge.poly[1] = (unsigned short)i;
+				edge.poly[0] = (uint16_t)i;
+				edge.polyEdge[0] = (uint16_t)j;
+				edge.poly[1] = (uint16_t)i;
 				edge.polyEdge[1] = 0;
 				// Insert edge
 				nextEdge[edgeCount] = firstEdge[v0];
-				firstEdge[v0] = (unsigned short)edgeCount;
+				firstEdge[v0] = (uint16_t)edgeCount;
 				edgeCount++;
 			}
 		}
@@ -80,21 +81,21 @@ static bool buildMeshAdjacency(unsigned short* polys, const int npolys,
 	
 	for (int i = 0; i < npolys; ++i)
 	{
-		unsigned short* t = &polys[i*vertsPerPoly*2];
+		uint16_t* t = &polys[i*vertsPerPoly*2];
 		for (int j = 0; j < vertsPerPoly; ++j)
 		{
 			if (t[j] == RC_MESH_NULL_IDX) break;
-			unsigned short v0 = t[j];
-			unsigned short v1 = (j+1 >= vertsPerPoly || t[j+1] == RC_MESH_NULL_IDX) ? t[0] : t[j+1];
+			uint16_t v0 = t[j];
+			uint16_t v1 = (j+1 >= vertsPerPoly || t[j+1] == RC_MESH_NULL_IDX) ? t[0] : t[j+1];
 			if (v0 > v1)
 			{
-				for (unsigned short e = firstEdge[v1]; e != RC_MESH_NULL_IDX; e = nextEdge[e])
+				for (uint16_t e = firstEdge[v1]; e != RC_MESH_NULL_IDX; e = nextEdge[e])
 				{
 					rcEdge& edge = edges[e];
 					if (edge.vert[1] == v0 && edge.poly[0] == edge.poly[1])
 					{
-						edge.poly[1] = (unsigned short)i;
-						edge.polyEdge[1] = (unsigned short)j;
+						edge.poly[1] = (uint16_t)i;
+						edge.polyEdge[1] = (uint16_t)j;
 						break;
 					}
 				}
@@ -108,8 +109,8 @@ static bool buildMeshAdjacency(unsigned short* polys, const int npolys,
 		const rcEdge& e = edges[i];
 		if (e.poly[0] != e.poly[1])
 		{
-			unsigned short* p0 = &polys[e.poly[0]*vertsPerPoly*2];
-			unsigned short* p1 = &polys[e.poly[1]*vertsPerPoly*2];
+			uint16_t* p0 = &polys[e.poly[0]*vertsPerPoly*2];
+			uint16_t* p1 = &polys[e.poly[1]*vertsPerPoly*2];
 			p0[vertsPerPoly + e.polyEdge[0]] = e.poly[1];
 			p1[vertsPerPoly + e.polyEdge[1]] = e.poly[0];
 		}
@@ -126,37 +127,37 @@ static const int VERTEX_BUCKET_COUNT = (1<<12);
 
 inline int computeVertexHash(int x, int y, int z)
 {
-	const unsigned int h1 = 0x8da6b343; // Large multiplicative constants;
-	const unsigned int h2 = 0xd8163841; // here arbitrarily chosen primes
-	const unsigned int h3 = 0xcb1ab31f;
-	unsigned int n = h1 * x + h2 * y + h3 * z;
+	const uint32_t h1 = 0x8da6b343; // Large multiplicative constants;
+	const uint32_t h2 = 0xd8163841; // here arbitrarily chosen primes
+	const uint32_t h3 = 0xcb1ab31f;
+	uint32_t n = h1 * x + h2 * y + h3 * z;
 	return (int)(n & (VERTEX_BUCKET_COUNT-1));
 }
 
-static unsigned short addVertex(unsigned short x, unsigned short y, unsigned short z,
-								unsigned short* verts, int* firstVert, int* nextVert, int& nv)
+static uint16_t addVertex(uint16_t x, uint16_t y, uint16_t z,
+								uint16_t* verts, int* firstVert, int* nextVert, int& nv)
 {
 	int bucket = computeVertexHash(x, 0, z);
 	int i = firstVert[bucket];
 	
 	while (i != -1)
 	{
-		const unsigned short* v = &verts[i*3];
+		const uint16_t* v = &verts[i*3];
 		if (v[0] == x && (rcAbs(v[1] - y) <= 2) && v[2] == z)
-			return (unsigned short)i;
+			return (uint16_t)i;
 		i = nextVert[i]; // next
 	}
 	
 	// Could not find, create new.
 	i = nv; nv++;
-	unsigned short* v = &verts[i*3];
+	uint16_t* v = &verts[i*3];
 	v[0] = x;
 	v[1] = y;
 	v[2] = z;
 	nextVert[i] = firstVert[bucket];
 	firstVert[bucket] = i;
 	
-	return (unsigned short)i;
+	return (uint16_t)i;
 }
 
 // Last time I checked the if version got compiled using cmov, which was a lot faster than module (with idiv).
@@ -441,7 +442,7 @@ static int triangulate(int n, const int* verts, int* indices, int* tris)
 	return ntris;
 }
 
-static int countPolyVerts(const unsigned short* p, const int nvp)
+static int countPolyVerts(const uint16_t* p, const int nvp)
 {
 	for (int i = 0; i < nvp; ++i)
 		if (p[i] == RC_MESH_NULL_IDX)
@@ -449,14 +450,14 @@ static int countPolyVerts(const unsigned short* p, const int nvp)
 	return nvp;
 }
 
-inline bool uleft(const unsigned short* a, const unsigned short* b, const unsigned short* c)
+inline bool uleft(const uint16_t* a, const uint16_t* b, const uint16_t* c)
 {
 	return ((int)b[0] - (int)a[0]) * ((int)c[2] - (int)a[2]) -
 		   ((int)c[0] - (int)a[0]) * ((int)b[2] - (int)a[2]) < 0;
 }
 
-static int getPolyMergeValue(unsigned short* pa, unsigned short* pb,
-							 const unsigned short* verts, int& ea, int& eb,
+static int getPolyMergeValue(uint16_t* pa, uint16_t* pb,
+							 const uint16_t* verts, int& ea, int& eb,
 							 const int nvp)
 {
 	const int na = countPolyVerts(pa, nvp);
@@ -472,14 +473,14 @@ static int getPolyMergeValue(unsigned short* pa, unsigned short* pb,
 	
 	for (int i = 0; i < na; ++i)
 	{
-		unsigned short va0 = pa[i];
-		unsigned short va1 = pa[(i+1) % na];
+		uint16_t va0 = pa[i];
+		uint16_t va1 = pa[(i+1) % na];
 		if (va0 > va1)
 			rcSwap(va0, va1);
 		for (int j = 0; j < nb; ++j)
 		{
-			unsigned short vb0 = pb[j];
-			unsigned short vb1 = pb[(j+1) % nb];
+			uint16_t vb0 = pb[j];
+			uint16_t vb1 = pb[(j+1) % nb];
 			if (vb0 > vb1)
 				rcSwap(vb0, vb1);
 			if (va0 == vb0 && va1 == vb1)
@@ -496,7 +497,7 @@ static int getPolyMergeValue(unsigned short* pa, unsigned short* pb,
 		return -1;
 	
 	// Check to see if the merged polygon would be convex.
-	unsigned short va, vb, vc;
+	uint16_t va, vb, vc;
 	
 	va = pa[(ea+na-1) % na];
 	vb = pa[ea];
@@ -519,14 +520,14 @@ static int getPolyMergeValue(unsigned short* pa, unsigned short* pb,
 	return dx*dx + dy*dy;
 }
 
-static void mergePolyVerts(unsigned short* pa, unsigned short* pb, int ea, int eb,
-						   unsigned short* tmp, const int nvp)
+static void mergePolyVerts(uint16_t* pa, uint16_t* pb, int ea, int eb,
+						   uint16_t* tmp, const int nvp)
 {
 	const int na = countPolyVerts(pa, nvp);
 	const int nb = countPolyVerts(pb, nvp);
 	
 	// Merge polygons.
-	memset(tmp, 0xff, sizeof(unsigned short)*nvp);
+	memset(tmp, 0xff, sizeof(uint16_t)*nvp);
 	int n = 0;
 	// Add pa
 	for (int i = 0; i < na-1; ++i)
@@ -535,7 +536,7 @@ static void mergePolyVerts(unsigned short* pa, unsigned short* pb, int ea, int e
 	for (int i = 0; i < nb-1; ++i)
 		tmp[n++] = pb[(eb+1+i) % nb];
 	
-	memcpy(pa, tmp, sizeof(unsigned short)*nvp);
+	memcpy(pa, tmp, sizeof(uint16_t)*nvp);
 }
 
 
@@ -552,7 +553,7 @@ static void pushBack(int v, int* arr, int& an)
 	an++;
 }
 
-static bool canRemoveVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short rem)
+static bool canRemoveVertex(rcContext* ctx, rcPolyMesh& mesh, const uint16_t rem)
 {
 	const int nvp = mesh.nvp;
 	
@@ -561,7 +562,7 @@ static bool canRemoveVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned sho
 	int numRemainingEdges = 0;
 	for (int i = 0; i < mesh.npolys; ++i)
 	{
-		unsigned short* p = &mesh.polys[i*nvp*2];
+		uint16_t* p = &mesh.polys[i*nvp*2];
 		const int nv = countPolyVerts(p, nvp);
 		int numRemoved = 0;
 		int numVerts = 0;
@@ -599,7 +600,7 @@ static bool canRemoveVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned sho
 		
 	for (int i = 0; i < mesh.npolys; ++i)
 	{
-		unsigned short* p = &mesh.polys[i*nvp*2];
+		uint16_t* p = &mesh.polys[i*nvp*2];
 		const int nv = countPolyVerts(p, nvp);
 
 		// Collect edges which touches the removed vertex.
@@ -652,7 +653,7 @@ static bool canRemoveVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned sho
 	return true;
 }
 
-static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short rem, const int maxTris)
+static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const uint16_t rem, const int maxTris)
 {
 	const int nvp = mesh.nvp;
 
@@ -660,7 +661,7 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 	int numRemovedVerts = 0;
 	for (int i = 0; i < mesh.npolys; ++i)
 	{
-		unsigned short* p = &mesh.polys[i*nvp*2];
+		uint16_t* p = &mesh.polys[i*nvp*2];
 		const int nv = countPolyVerts(p, nvp);
 		for (int j = 0; j < nv; ++j)
 		{
@@ -703,7 +704,7 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 	
 	for (int i = 0; i < mesh.npolys; ++i)
 	{
-		unsigned short* p = &mesh.polys[i*nvp*2];
+		uint16_t* p = &mesh.polys[i*nvp*2];
 		const int nv = countPolyVerts(p, nvp);
 		bool hasRem = false;
 		for (int j = 0; j < nv; ++j)
@@ -724,10 +725,10 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 				}
 			}
 			// Remove the polygon.
-			unsigned short* p2 = &mesh.polys[(mesh.npolys-1)*nvp*2];
+			uint16_t* p2 = &mesh.polys[(mesh.npolys-1)*nvp*2];
 			if (p != p2)
-				memcpy(p,p2,sizeof(unsigned short)*nvp);
-			memset(p+nvp,0xff,sizeof(unsigned short)*nvp);
+				memcpy(p,p2,sizeof(uint16_t)*nvp);
+			memset(p+nvp,0xff,sizeof(uint16_t)*nvp);
 			mesh.regs[i] = mesh.regs[mesh.npolys-1];
 			mesh.areas[i] = mesh.areas[mesh.npolys-1];
 			mesh.npolys--;
@@ -747,7 +748,7 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 	// Adjust indices to match the removed vertex layout.
 	for (int i = 0; i < mesh.npolys; ++i)
 	{
-		unsigned short* p = &mesh.polys[i*nvp*2];
+		uint16_t* p = &mesh.polys[i*nvp*2];
 		const int nv = countPolyVerts(p, nvp);
 		for (int j = 0; j < nv; ++j)
 			if (p[j] > rem) p[j]--;
@@ -852,47 +853,47 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 	}
 	
 	// Merge the hole triangles back to polygons.
-	rcScopedDelete<unsigned short> polys((unsigned short*)rcAlloc(sizeof(unsigned short)*(ntris+1)*nvp, RC_ALLOC_TEMP));
+	rcScopedDelete<uint16_t> polys((uint16_t*)rcAlloc(sizeof(uint16_t)*(ntris+1)*nvp, RC_ALLOC_TEMP));
 	if (!polys)
 	{
 		ctx->log(RC_LOG_ERROR, "removeVertex: Out of memory 'polys' (%d).", (ntris+1)*nvp);
 		return false;
 	}
-	rcScopedDelete<unsigned short> pregs((unsigned short*)rcAlloc(sizeof(unsigned short)*ntris, RC_ALLOC_TEMP));
+	rcScopedDelete<uint16_t> pregs((uint16_t*)rcAlloc(sizeof(uint16_t)*ntris, RC_ALLOC_TEMP));
 	if (!pregs)
 	{
 		ctx->log(RC_LOG_ERROR, "removeVertex: Out of memory 'pregs' (%d).", ntris);
 		return false;
 	}
-	rcScopedDelete<unsigned char> pareas((unsigned char*)rcAlloc(sizeof(unsigned char)*ntris, RC_ALLOC_TEMP));
+	rcScopedDelete<uint8_t> pareas((uint8_t*)rcAlloc(sizeof(uint8_t)*ntris, RC_ALLOC_TEMP));
 	if (!pareas)
 	{
 		ctx->log(RC_LOG_ERROR, "removeVertex: Out of memory 'pareas' (%d).", ntris);
 		return false;
 	}
 	
-	unsigned short* tmpPoly = &polys[ntris*nvp];
+	uint16_t* tmpPoly = &polys[ntris*nvp];
 			
 	// Build initial polygons.
 	int npolys = 0;
-	memset(polys, 0xff, ntris*nvp*sizeof(unsigned short));
+	memset(polys, 0xff, ntris*nvp*sizeof(uint16_t));
 	for (int j = 0; j < ntris; ++j)
 	{
 		int* t = &tris[j*3];
 		if (t[0] != t[1] && t[0] != t[2] && t[1] != t[2])
 		{
-			polys[npolys*nvp+0] = (unsigned short)hole[t[0]];
-			polys[npolys*nvp+1] = (unsigned short)hole[t[1]];
-			polys[npolys*nvp+2] = (unsigned short)hole[t[2]];
+			polys[npolys*nvp+0] = (uint16_t)hole[t[0]];
+			polys[npolys*nvp+1] = (uint16_t)hole[t[1]];
+			polys[npolys*nvp+2] = (uint16_t)hole[t[2]];
 
 			// If this polygon covers multiple region types then
 			// mark it as such
 			if (hreg[t[0]] != hreg[t[1]] || hreg[t[1]] != hreg[t[2]])
 				pregs[npolys] = RC_MULTIPLE_REGS;
 			else
-				pregs[npolys] = (unsigned short)hreg[t[0]];
+				pregs[npolys] = (uint16_t)hreg[t[0]];
 
-			pareas[npolys] = (unsigned char)harea[t[0]];
+			pareas[npolys] = (uint8_t)harea[t[0]];
 			npolys++;
 		}
 	}
@@ -910,10 +911,10 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 			
 			for (int j = 0; j < npolys-1; ++j)
 			{
-				unsigned short* pj = &polys[j*nvp];
+				uint16_t* pj = &polys[j*nvp];
 				for (int k = j+1; k < npolys; ++k)
 				{
-					unsigned short* pk = &polys[k*nvp];
+					uint16_t* pk = &polys[k*nvp];
 					int ea, eb;
 					int v = getPolyMergeValue(pj, pk, mesh.verts, ea, eb, nvp);
 					if (v > bestMergeVal)
@@ -930,15 +931,15 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 			if (bestMergeVal > 0)
 			{
 				// Found best, merge.
-				unsigned short* pa = &polys[bestPa*nvp];
-				unsigned short* pb = &polys[bestPb*nvp];
+				uint16_t* pa = &polys[bestPa*nvp];
+				uint16_t* pb = &polys[bestPb*nvp];
 				mergePolyVerts(pa, pb, bestEa, bestEb, tmpPoly, nvp);
 				if (pregs[bestPa] != pregs[bestPb])
 					pregs[bestPa] = RC_MULTIPLE_REGS;
 
-				unsigned short* last = &polys[(npolys-1)*nvp];
+				uint16_t* last = &polys[(npolys-1)*nvp];
 				if (pb != last)
-					memcpy(pb, last, sizeof(unsigned short)*nvp);
+					memcpy(pb, last, sizeof(uint16_t)*nvp);
 				pregs[bestPb] = pregs[npolys-1];
 				pareas[bestPb] = pareas[npolys-1];
 				npolys--;
@@ -955,8 +956,8 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 	for (int i = 0; i < npolys; ++i)
 	{
 		if (mesh.npolys >= maxTris) break;
-		unsigned short* p = &mesh.polys[mesh.npolys*nvp*2];
-		memset(p,0xff,sizeof(unsigned short)*nvp*2);
+		uint16_t* p = &mesh.polys[mesh.npolys*nvp*2];
+		memset(p,0xff,sizeof(uint16_t)*nvp*2);
 		for (int j = 0; j < nvp; ++j)
 			p[j] = polys[i*nvp+j];
 		mesh.regs[mesh.npolys] = pregs[i];
@@ -1009,7 +1010,7 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 		return false;
 	}
 		
-	rcScopedDelete<unsigned char> vflags((unsigned char*)rcAlloc(sizeof(unsigned char)*maxVertices, RC_ALLOC_TEMP));
+	rcScopedDelete<uint8_t> vflags((uint8_t*)rcAlloc(sizeof(uint8_t)*maxVertices, RC_ALLOC_TEMP));
 	if (!vflags)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'vflags' (%d).", maxVertices);
@@ -1017,25 +1018,25 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 	}
 	memset(vflags, 0, maxVertices);
 	
-	mesh.verts = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxVertices*3, RC_ALLOC_PERM);
+	mesh.verts = (uint16_t*)rcAlloc(sizeof(uint16_t)*maxVertices*3, RC_ALLOC_PERM);
 	if (!mesh.verts)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'mesh.verts' (%d).", maxVertices);
 		return false;
 	}
-	mesh.polys = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxTris*nvp*2, RC_ALLOC_PERM);
+	mesh.polys = (uint16_t*)rcAlloc(sizeof(uint16_t)*maxTris*nvp*2, RC_ALLOC_PERM);
 	if (!mesh.polys)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'mesh.polys' (%d).", maxTris*nvp*2);
 		return false;
 	}
-	mesh.regs = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxTris, RC_ALLOC_PERM);
+	mesh.regs = (uint16_t*)rcAlloc(sizeof(uint16_t)*maxTris, RC_ALLOC_PERM);
 	if (!mesh.regs)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'mesh.regs' (%d).", maxTris);
 		return false;
 	}
-	mesh.areas = (unsigned char*)rcAlloc(sizeof(unsigned char)*maxTris, RC_ALLOC_PERM);
+	mesh.areas = (uint8_t*)rcAlloc(sizeof(uint8_t)*maxTris, RC_ALLOC_PERM);
 	if (!mesh.areas)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'mesh.areas' (%d).", maxTris);
@@ -1047,10 +1048,10 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 	mesh.nvp = nvp;
 	mesh.maxpolys = maxTris;
 	
-	memset(mesh.verts, 0, sizeof(unsigned short)*maxVertices*3);
-	memset(mesh.polys, 0xff, sizeof(unsigned short)*maxTris*nvp*2);
-	memset(mesh.regs, 0, sizeof(unsigned short)*maxTris);
-	memset(mesh.areas, 0, sizeof(unsigned char)*maxTris);
+	memset(mesh.verts, 0, sizeof(uint16_t)*maxVertices*3);
+	memset(mesh.polys, 0xff, sizeof(uint16_t)*maxTris*nvp*2);
+	memset(mesh.regs, 0, sizeof(uint16_t)*maxTris);
+	memset(mesh.areas, 0, sizeof(uint8_t)*maxTris);
 	
 	rcScopedDelete<int> nextVert((int*)rcAlloc(sizeof(int)*maxVertices, RC_ALLOC_TEMP));
 	if (!nextVert)
@@ -1081,13 +1082,13 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'tris' (%d).", maxVertsPerCont*3);
 		return false;
 	}
-	rcScopedDelete<unsigned short> polys((unsigned short*)rcAlloc(sizeof(unsigned short)*(maxVertsPerCont+1)*nvp, RC_ALLOC_TEMP));
+	rcScopedDelete<uint16_t> polys((uint16_t*)rcAlloc(sizeof(uint16_t)*(maxVertsPerCont+1)*nvp, RC_ALLOC_TEMP));
 	if (!polys)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'polys' (%d).", maxVertsPerCont*nvp);
 		return false;
 	}
-	unsigned short* tmpPoly = &polys[maxVertsPerCont*nvp];
+	uint16_t* tmpPoly = &polys[maxVertsPerCont*nvp];
 
 	for (int i = 0; i < cset.nconts; ++i)
 	{
@@ -1123,7 +1124,7 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 		for (int j = 0; j < cont.nverts; ++j)
 		{
 			const int* v = &cont.verts[j*4];
-			indices[j] = addVertex((unsigned short)v[0], (unsigned short)v[1], (unsigned short)v[2],
+			indices[j] = addVertex((uint16_t)v[0], (uint16_t)v[1], (uint16_t)v[2],
 								   mesh.verts, firstVert, nextVert, mesh.nverts);
 			if (v[3] & RC_BORDER_VERTEX)
 			{
@@ -1134,15 +1135,15 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 
 		// Build initial polygons.
 		int npolys = 0;
-		memset(polys, 0xff, maxVertsPerCont*nvp*sizeof(unsigned short));
+		memset(polys, 0xff, maxVertsPerCont*nvp*sizeof(uint16_t));
 		for (int j = 0; j < ntris; ++j)
 		{
 			int* t = &tris[j*3];
 			if (t[0] != t[1] && t[0] != t[2] && t[1] != t[2])
 			{
-				polys[npolys*nvp+0] = (unsigned short)indices[t[0]];
-				polys[npolys*nvp+1] = (unsigned short)indices[t[1]];
-				polys[npolys*nvp+2] = (unsigned short)indices[t[2]];
+				polys[npolys*nvp+0] = (uint16_t)indices[t[0]];
+				polys[npolys*nvp+1] = (uint16_t)indices[t[1]];
+				polys[npolys*nvp+2] = (uint16_t)indices[t[2]];
 				npolys++;
 			}
 		}
@@ -1160,10 +1161,10 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 				
 				for (int j = 0; j < npolys-1; ++j)
 				{
-					unsigned short* pj = &polys[j*nvp];
+					uint16_t* pj = &polys[j*nvp];
 					for (int k = j+1; k < npolys; ++k)
 					{
-						unsigned short* pk = &polys[k*nvp];
+						uint16_t* pk = &polys[k*nvp];
 						int ea, eb;
 						int v = getPolyMergeValue(pj, pk, mesh.verts, ea, eb, nvp);
 						if (v > bestMergeVal)
@@ -1180,12 +1181,12 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 				if (bestMergeVal > 0)
 				{
 					// Found best, merge.
-					unsigned short* pa = &polys[bestPa*nvp];
-					unsigned short* pb = &polys[bestPb*nvp];
+					uint16_t* pa = &polys[bestPa*nvp];
+					uint16_t* pb = &polys[bestPb*nvp];
 					mergePolyVerts(pa, pb, bestEa, bestEb, tmpPoly, nvp);
-					unsigned short* lastPoly = &polys[(npolys-1)*nvp];
+					uint16_t* lastPoly = &polys[(npolys-1)*nvp];
 					if (pb != lastPoly)
-						memcpy(pb, lastPoly, sizeof(unsigned short)*nvp);
+						memcpy(pb, lastPoly, sizeof(uint16_t)*nvp);
 					npolys--;
 				}
 				else
@@ -1199,8 +1200,8 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 		// Store polygons.
 		for (int j = 0; j < npolys; ++j)
 		{
-			unsigned short* p = &mesh.polys[mesh.npolys*nvp*2];
-			unsigned short* q = &polys[j*nvp];
+			uint16_t* p = &mesh.polys[mesh.npolys*nvp*2];
+			uint16_t* q = &polys[j*nvp];
 			for (int k = 0; k < nvp; ++k)
 				p[k] = q[k];
 			mesh.regs[mesh.npolys] = cont.reg;
@@ -1220,9 +1221,9 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 	{
 		if (vflags[i])
 		{
-			if (!canRemoveVertex(ctx, mesh, (unsigned short)i))
+			if (!canRemoveVertex(ctx, mesh, (uint16_t)i))
 				continue;
-			if (!removeVertex(ctx, mesh, (unsigned short)i, maxTris))
+			if (!removeVertex(ctx, mesh, (uint16_t)i, maxTris))
 			{
 				// Failed to remove vertex
 				ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Failed to remove edge vertex %d.", i);
@@ -1251,7 +1252,7 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 		const int h = cset.height;
 		for (int i = 0; i < mesh.npolys; ++i)
 		{
-			unsigned short* p = &mesh.polys[i*2*nvp];
+			uint16_t* p = &mesh.polys[i*2*nvp];
 			for (int j = 0; j < nvp; ++j)
 			{
 				if (p[j] == RC_MESH_NULL_IDX) break;
@@ -1260,8 +1261,8 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 					continue;
 				int nj = j+1;
 				if (nj >= nvp || p[nj] == RC_MESH_NULL_IDX) nj = 0;
-				const unsigned short* va = &mesh.verts[p[j]*3];
-				const unsigned short* vb = &mesh.verts[p[nj]*3];
+				const uint16_t* va = &mesh.verts[p[j]*3];
+				const uint16_t* vb = &mesh.verts[p[nj]*3];
 
 				if ((int)va[0] == 0 && (int)vb[0] == 0)
 					p[nvp+j] = 0x8000 | 0;
@@ -1276,13 +1277,13 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 	}
 
 	// Just allocate the mesh flags array. The user is resposible to fill it.
-	mesh.flags = (unsigned short*)rcAlloc(sizeof(unsigned short)*mesh.npolys, RC_ALLOC_PERM);
+	mesh.flags = (uint16_t*)rcAlloc(sizeof(uint16_t)*mesh.npolys, RC_ALLOC_PERM);
 	if (!mesh.flags)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMesh: Out of memory 'mesh.flags' (%d).", mesh.npolys);
 		return false;
 	}
-	memset(mesh.flags, 0, sizeof(unsigned short) * mesh.npolys);
+	memset(mesh.flags, 0, sizeof(uint16_t) * mesh.npolys);
 	
 	if (mesh.nverts > 0xffff)
 	{
@@ -1325,7 +1326,7 @@ bool rcMergePolyMeshes(rcContext* ctx, rcPolyMesh** meshes, const int nmeshes, r
 	}
 	
 	mesh.nverts = 0;
-	mesh.verts = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxVerts*3, RC_ALLOC_PERM);
+	mesh.verts = (uint16_t*)rcAlloc(sizeof(uint16_t)*maxVerts*3, RC_ALLOC_PERM);
 	if (!mesh.verts)
 	{
 		ctx->log(RC_LOG_ERROR, "rcMergePolyMeshes: Out of memory 'mesh.verts' (%d).", maxVerts*3);
@@ -1333,37 +1334,37 @@ bool rcMergePolyMeshes(rcContext* ctx, rcPolyMesh** meshes, const int nmeshes, r
 	}
 
 	mesh.npolys = 0;
-	mesh.polys = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxPolys*2*mesh.nvp, RC_ALLOC_PERM);
+	mesh.polys = (uint16_t*)rcAlloc(sizeof(uint16_t)*maxPolys*2*mesh.nvp, RC_ALLOC_PERM);
 	if (!mesh.polys)
 	{
 		ctx->log(RC_LOG_ERROR, "rcMergePolyMeshes: Out of memory 'mesh.polys' (%d).", maxPolys*2*mesh.nvp);
 		return false;
 	}
-	memset(mesh.polys, 0xff, sizeof(unsigned short)*maxPolys*2*mesh.nvp);
+	memset(mesh.polys, 0xff, sizeof(uint16_t)*maxPolys*2*mesh.nvp);
 
-	mesh.regs = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxPolys, RC_ALLOC_PERM);
+	mesh.regs = (uint16_t*)rcAlloc(sizeof(uint16_t)*maxPolys, RC_ALLOC_PERM);
 	if (!mesh.regs)
 	{
 		ctx->log(RC_LOG_ERROR, "rcMergePolyMeshes: Out of memory 'mesh.regs' (%d).", maxPolys);
 		return false;
 	}
-	memset(mesh.regs, 0, sizeof(unsigned short)*maxPolys);
+	memset(mesh.regs, 0, sizeof(uint16_t)*maxPolys);
 
-	mesh.areas = (unsigned char*)rcAlloc(sizeof(unsigned char)*maxPolys, RC_ALLOC_PERM);
+	mesh.areas = (uint8_t*)rcAlloc(sizeof(uint8_t)*maxPolys, RC_ALLOC_PERM);
 	if (!mesh.areas)
 	{
 		ctx->log(RC_LOG_ERROR, "rcMergePolyMeshes: Out of memory 'mesh.areas' (%d).", maxPolys);
 		return false;
 	}
-	memset(mesh.areas, 0, sizeof(unsigned char)*maxPolys);
+	memset(mesh.areas, 0, sizeof(uint8_t)*maxPolys);
 
-	mesh.flags = (unsigned short*)rcAlloc(sizeof(unsigned short)*maxPolys, RC_ALLOC_PERM);
+	mesh.flags = (uint16_t*)rcAlloc(sizeof(uint16_t)*maxPolys, RC_ALLOC_PERM);
 	if (!mesh.flags)
 	{
 		ctx->log(RC_LOG_ERROR, "rcMergePolyMeshes: Out of memory 'mesh.flags' (%d).", maxPolys);
 		return false;
 	}
-	memset(mesh.flags, 0, sizeof(unsigned short)*maxPolys);
+	memset(mesh.flags, 0, sizeof(uint16_t)*maxPolys);
 	
 	rcScopedDelete<int> nextVert((int*)rcAlloc(sizeof(int)*maxVerts, RC_ALLOC_TEMP));
 	if (!nextVert)
@@ -1382,38 +1383,38 @@ bool rcMergePolyMeshes(rcContext* ctx, rcPolyMesh** meshes, const int nmeshes, r
 	for (int i = 0; i < VERTEX_BUCKET_COUNT; ++i)
 		firstVert[i] = -1;
 
-	rcScopedDelete<unsigned short> vremap((unsigned short*)rcAlloc(sizeof(unsigned short)*maxVertsPerMesh, RC_ALLOC_PERM));
+	rcScopedDelete<uint16_t> vremap((uint16_t*)rcAlloc(sizeof(uint16_t)*maxVertsPerMesh, RC_ALLOC_PERM));
 	if (!vremap)
 	{
 		ctx->log(RC_LOG_ERROR, "rcMergePolyMeshes: Out of memory 'vremap' (%d).", maxVertsPerMesh);
 		return false;
 	}
-	memset(vremap, 0, sizeof(unsigned short)*maxVertsPerMesh);
+	memset(vremap, 0, sizeof(uint16_t)*maxVertsPerMesh);
 	
 	for (int i = 0; i < nmeshes; ++i)
 	{
 		const rcPolyMesh* pmesh = meshes[i];
 		
-		const unsigned short ox = (unsigned short)floorf((pmesh->bmin[0]-mesh.bmin[0])/mesh.cs+0.5f);
-		const unsigned short oz = (unsigned short)floorf((pmesh->bmin[2]-mesh.bmin[2])/mesh.cs+0.5f);
+		const uint16_t ox = (uint16_t)floorf((pmesh->bmin[0]-mesh.bmin[0])/mesh.cs+0.5f);
+		const uint16_t oz = (uint16_t)floorf((pmesh->bmin[2]-mesh.bmin[2])/mesh.cs+0.5f);
 		
 		bool isMinX = (ox == 0);
 		bool isMinZ = (oz == 0);
-		bool isMaxX = ((unsigned short)floorf((mesh.bmax[0] - pmesh->bmax[0]) / mesh.cs + 0.5f)) == 0;
-		bool isMaxZ = ((unsigned short)floorf((mesh.bmax[2] - pmesh->bmax[2]) / mesh.cs + 0.5f)) == 0;
+		bool isMaxX = ((uint16_t)floorf((mesh.bmax[0] - pmesh->bmax[0]) / mesh.cs + 0.5f)) == 0;
+		bool isMaxZ = ((uint16_t)floorf((mesh.bmax[2] - pmesh->bmax[2]) / mesh.cs + 0.5f)) == 0;
 		bool isOnBorder = (isMinX || isMinZ || isMaxX || isMaxZ);
 
 		for (int j = 0; j < pmesh->nverts; ++j)
 		{
-			unsigned short* v = &pmesh->verts[j*3];
+			uint16_t* v = &pmesh->verts[j*3];
 			vremap[j] = addVertex(v[0]+ox, v[1], v[2]+oz,
 								  mesh.verts, firstVert, nextVert, mesh.nverts);
 		}
 		
 		for (int j = 0; j < pmesh->npolys; ++j)
 		{
-			unsigned short* tgt = &mesh.polys[mesh.npolys*2*mesh.nvp];
-			unsigned short* src = &pmesh->polys[j*2*mesh.nvp];
+			uint16_t* tgt = &mesh.polys[mesh.npolys*2*mesh.nvp];
+			uint16_t* src = &pmesh->polys[j*2*mesh.nvp];
 			mesh.regs[mesh.npolys] = pmesh->regs[j];
 			mesh.areas[mesh.npolys] = pmesh->areas[j];
 			mesh.flags[mesh.npolys] = pmesh->flags[j];
@@ -1430,7 +1431,7 @@ bool rcMergePolyMeshes(rcContext* ctx, rcPolyMesh** meshes, const int nmeshes, r
 				{
 					if (src[k] & 0x8000 && src[k] != 0xffff)
 					{
-						unsigned short dir = src[k] & 0xf;
+						uint16_t dir = src[k] & 0xf;
 						switch (dir)
 						{
 							case 0: // Portal x-
@@ -1497,45 +1498,45 @@ bool rcCopyPolyMesh(rcContext* ctx, const rcPolyMesh& src, rcPolyMesh& dst)
 	dst.borderSize = src.borderSize;
 	dst.maxEdgeError = src.maxEdgeError;
 	
-	dst.verts = (unsigned short*)rcAlloc(sizeof(unsigned short)*src.nverts*3, RC_ALLOC_PERM);
+	dst.verts = (uint16_t*)rcAlloc(sizeof(uint16_t)*src.nverts*3, RC_ALLOC_PERM);
 	if (!dst.verts)
 	{
 		ctx->log(RC_LOG_ERROR, "rcCopyPolyMesh: Out of memory 'dst.verts' (%d).", src.nverts*3);
 		return false;
 	}
-	memcpy(dst.verts, src.verts, sizeof(unsigned short)*src.nverts*3);
+	memcpy(dst.verts, src.verts, sizeof(uint16_t)*src.nverts*3);
 	
-	dst.polys = (unsigned short*)rcAlloc(sizeof(unsigned short)*src.npolys*2*src.nvp, RC_ALLOC_PERM);
+	dst.polys = (uint16_t*)rcAlloc(sizeof(uint16_t)*src.npolys*2*src.nvp, RC_ALLOC_PERM);
 	if (!dst.polys)
 	{
 		ctx->log(RC_LOG_ERROR, "rcCopyPolyMesh: Out of memory 'dst.polys' (%d).", src.npolys*2*src.nvp);
 		return false;
 	}
-	memcpy(dst.polys, src.polys, sizeof(unsigned short)*src.npolys*2*src.nvp);
+	memcpy(dst.polys, src.polys, sizeof(uint16_t)*src.npolys*2*src.nvp);
 	
-	dst.regs = (unsigned short*)rcAlloc(sizeof(unsigned short)*src.npolys, RC_ALLOC_PERM);
+	dst.regs = (uint16_t*)rcAlloc(sizeof(uint16_t)*src.npolys, RC_ALLOC_PERM);
 	if (!dst.regs)
 	{
 		ctx->log(RC_LOG_ERROR, "rcCopyPolyMesh: Out of memory 'dst.regs' (%d).", src.npolys);
 		return false;
 	}
-	memcpy(dst.regs, src.regs, sizeof(unsigned short)*src.npolys);
+	memcpy(dst.regs, src.regs, sizeof(uint16_t)*src.npolys);
 	
-	dst.areas = (unsigned char*)rcAlloc(sizeof(unsigned char)*src.npolys, RC_ALLOC_PERM);
+	dst.areas = (uint8_t*)rcAlloc(sizeof(uint8_t)*src.npolys, RC_ALLOC_PERM);
 	if (!dst.areas)
 	{
 		ctx->log(RC_LOG_ERROR, "rcCopyPolyMesh: Out of memory 'dst.areas' (%d).", src.npolys);
 		return false;
 	}
-	memcpy(dst.areas, src.areas, sizeof(unsigned char)*src.npolys);
+	memcpy(dst.areas, src.areas, sizeof(uint8_t)*src.npolys);
 	
-	dst.flags = (unsigned short*)rcAlloc(sizeof(unsigned short)*src.npolys, RC_ALLOC_PERM);
+	dst.flags = (uint16_t*)rcAlloc(sizeof(uint16_t)*src.npolys, RC_ALLOC_PERM);
 	if (!dst.flags)
 	{
 		ctx->log(RC_LOG_ERROR, "rcCopyPolyMesh: Out of memory 'dst.flags' (%d).", src.npolys);
 		return false;
 	}
-	memcpy(dst.flags, src.flags, sizeof(unsigned short)*src.npolys);
+	memcpy(dst.flags, src.flags, sizeof(uint16_t)*src.npolys);
 	
 	return true;
 }

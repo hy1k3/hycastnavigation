@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "Recast.h"
 #include "catch2/catch_amalgamated.hpp"
 
@@ -18,7 +19,7 @@ TEST_CASE("rcAddSpan", "[recast][rasterization]")
 	rcHeightfield hf;
 	REQUIRE(rcCreateHeightfield(&ctx, hf, xSize, zSize, minBounds, maxBounds, cellSize, cellHeight));
 
-	constexpr unsigned char area = 42;
+	constexpr uint8_t area = 42;
 	constexpr int flagMergeThr = 1;
 
 	SECTION("Add a span to an empty heightfield.")
@@ -212,7 +213,7 @@ TEST_CASE("allocSpan", "[recast][rasterization]")
 	rcHeightfield hf;
 	REQUIRE(rcCreateHeightfield(&ctx, hf, xSize, zSize, minBounds, maxBounds, cellSize, cellHeight));
 
-	constexpr unsigned char area = 42;
+	constexpr uint8_t area = 42;
 	constexpr int flagMergeThr = 1;
 
 	SECTION("Attempting to add more spans than the span pool size allocates a new page")

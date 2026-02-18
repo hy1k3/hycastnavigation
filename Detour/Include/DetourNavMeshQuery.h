@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "DetourNavMesh.h"
 #include "DetourStatus.h"
 
@@ -34,8 +36,8 @@
 class dtQueryFilter
 {
 	float m_areaCost[DT_MAX_AREAS];		///< Cost per area type. (Used by default implementation.)
-	unsigned short m_includeFlags;		///< Flags for polygons that can be visited. (Used by default implementation.)
-	unsigned short m_excludeFlags;		///< Flags for polygons that should not be visited. (Used by default implementation.)
+	uint16_t m_includeFlags;		///< Flags for polygons that can be visited. (Used by default implementation.)
+	uint16_t m_excludeFlags;		///< Flags for polygons that should not be visited. (Used by default implementation.)
 	
 public:
 	dtQueryFilter();
@@ -99,20 +101,20 @@ public:
 	/// Returns the include flags for the filter.
 	/// Any polygons that include one or more of these flags will be
 	/// included in the operation.
-	inline unsigned short getIncludeFlags() const { return m_includeFlags; }
+	inline uint16_t getIncludeFlags() const { return m_includeFlags; }
 
 	/// Sets the include flags for the filter.
 	/// @param[in]		flags	The new flags.
-	inline void setIncludeFlags(const unsigned short flags) { m_includeFlags = flags; }
+	inline void setIncludeFlags(const uint16_t flags) { m_includeFlags = flags; }
 
 	/// Returns the exclude flags for the filter.
 	/// Any polygons that include one ore more of these flags will be
 	/// excluded from the operation.
-	inline unsigned short getExcludeFlags() const { return m_excludeFlags; }
+	inline uint16_t getExcludeFlags() const { return m_excludeFlags; }
 
 	/// Sets the exclude flags for the filter.
 	/// @param[in]		flags		The new flags.
-	inline void setExcludeFlags(const unsigned short flags) { m_excludeFlags = flags; }	
+	inline void setExcludeFlags(const uint16_t flags) { m_excludeFlags = flags; }	
 
 	///@}
 
@@ -205,7 +207,7 @@ public:
 	/// @returns The status flags for the query.
 	dtStatus findStraightPath(const float* startPos, const float* endPos,
 							  const dtPolyRef* path, const int pathSize,
-							  float* straightPath, unsigned char* straightPathFlags, dtPolyRef* straightPathRefs,
+							  float* straightPath, uint8_t* straightPathFlags, dtPolyRef* straightPathRefs,
 							  int* straightPathCount, const int maxStraightPath, const int options = 0) const;
 
 	///@}
@@ -226,7 +228,7 @@ public:
 	/// @returns The status flags for the query.
 	dtStatus initSlicedFindPath(dtPolyRef startRef, dtPolyRef endRef,
 								const float* startPos, const float* endPos,
-								const dtQueryFilter* filter, const unsigned int options = 0);
+								const dtQueryFilter* filter, const uint32_t options = 0);
 
 	/// Updates an in-progress sliced path query.
 	///  @param[in]		maxIter		The maximum number of iterations to perform.
@@ -418,7 +420,7 @@ public:
 	///  @param[in]		prevRef		parent of start ref. Used during for cost calculation [opt]
 	/// @returns The status flags for the query.
 	dtStatus raycast(dtPolyRef startRef, const float* startPos, const float* endPos,
-					 const dtQueryFilter* filter, const unsigned int options,
+					 const dtQueryFilter* filter, const uint32_t options,
 					 dtRaycastHit* hit, dtPolyRef prevRef = 0) const;
 
 
@@ -532,7 +534,7 @@ private:
 
 	/// Returns portal points between two polygons.
 	dtStatus getPortalPoints(dtPolyRef from, dtPolyRef to, float* left, float* right,
-							 unsigned char& fromType, unsigned char& toType) const;
+							 uint8_t& fromType, uint8_t& toType) const;
 	dtStatus getPortalPoints(dtPolyRef from, const dtPoly* fromPoly, const dtMeshTile* fromTile,
 							 dtPolyRef to, const dtPoly* toPoly, const dtMeshTile* toTile,
 							 float* left, float* right) const;
@@ -544,13 +546,13 @@ private:
 							 float* mid) const;
 	
 	// Appends vertex to a straight path
-	dtStatus appendVertex(const float* pos, const unsigned char flags, const dtPolyRef ref,
-						  float* straightPath, unsigned char* straightPathFlags, dtPolyRef* straightPathRefs,
+	dtStatus appendVertex(const float* pos, const uint8_t flags, const dtPolyRef ref,
+						  float* straightPath, uint8_t* straightPathFlags, dtPolyRef* straightPathRefs,
 						  int* straightPathCount, const int maxStraightPath) const;
 
 	// Appends intermediate portal points to a straight path.
 	dtStatus appendPortals(const int startIdx, const int endIdx, const float* endPos, const dtPolyRef* path,
-						   float* straightPath, unsigned char* straightPathFlags, dtPolyRef* straightPathRefs,
+						   float* straightPath, uint8_t* straightPathFlags, dtPolyRef* straightPathRefs,
 						   int* straightPathCount, const int maxStraightPath, const int options) const;
 
 	// Gets the path leading to the specified end node.
@@ -566,7 +568,7 @@ private:
 		dtPolyRef startRef, endRef;
 		float startPos[3], endPos[3];
 		const dtQueryFilter* filter;
-		unsigned int options;
+		uint32_t options;
 		float raycastLimitSqr;
 	};
 	dtQueryData m_query;				///< Sliced query state.

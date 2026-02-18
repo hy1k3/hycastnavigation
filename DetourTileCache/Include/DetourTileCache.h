@@ -1,9 +1,11 @@
 #pragma once
 
+#include <cstdint>
+
 #include "DetourStatus.h"
 
-typedef unsigned int dtObstacleRef;
-typedef unsigned int dtCompressedTileRef;
+typedef uint32_t dtObstacleRef;
+typedef uint32_t dtCompressedTileRef;
 
 /// Flags for addTile
 enum dtCompressedTileFlags
@@ -13,13 +15,13 @@ enum dtCompressedTileFlags
 
 struct dtCompressedTile
 {
-	unsigned int salt;						///< Counter describing modifications to the tile.
+	uint32_t salt;						///< Counter describing modifications to the tile.
 	struct dtTileCacheLayerHeader* header;
-	unsigned char* compressed;
+	uint8_t* compressed;
 	int compressedSize;
-	unsigned char* data;
+	uint8_t* data;
 	int dataSize;
-	unsigned int flags;
+	uint32_t flags;
 	dtCompressedTile* next;
 };
 
@@ -70,11 +72,11 @@ struct dtTileCacheObstacle
 
 	dtCompressedTileRef touched[DT_MAX_TOUCHED_TILES];
 	dtCompressedTileRef pending[DT_MAX_TOUCHED_TILES];
-	unsigned short salt;
-	unsigned char type;
-	unsigned char state;
-	unsigned char ntouched;
-	unsigned char npending;
+	uint16_t salt;
+	uint8_t type;
+	uint8_t state;
+	uint8_t ntouched;
+	uint8_t npending;
 	dtTileCacheObstacle* next;
 };
 
@@ -94,7 +96,7 @@ struct dtTileCacheParams
 struct dtTileCacheMeshProcess
 {
 	virtual ~dtTileCacheMeshProcess();
-	virtual void process(struct dtNavMeshCreateParams* params, unsigned char* polyAreas, unsigned short* polyFlags) = 0;
+	virtual void process(struct dtNavMeshCreateParams* params, uint8_t* polyAreas, uint16_t* polyFlags) = 0;
 };
 
 class dtTileCache
@@ -128,9 +130,9 @@ public:
 	dtCompressedTileRef getTileRef(const dtCompressedTile* tile) const;
 	const dtCompressedTile* getTileByRef(dtCompressedTileRef ref) const;
 	
-	dtStatus addTile(unsigned char* data, const int dataSize, unsigned char flags, dtCompressedTileRef* result);
+	dtStatus addTile(uint8_t* data, const int dataSize, uint8_t flags, dtCompressedTileRef* result);
 	
-	dtStatus removeTile(dtCompressedTileRef ref, unsigned char** data, int* dataSize);
+	dtStatus removeTile(dtCompressedTileRef ref, uint8_t** data, int* dataSize);
 	
 	// Cylinder obstacle.
 	dtStatus addObstacle(const float* pos, const float radius, const float height, dtObstacleRef* result);
@@ -164,43 +166,43 @@ public:
 	
 
 	/// Encodes a tile id.
-	inline dtCompressedTileRef encodeTileId(unsigned int salt, unsigned int it) const
+	inline dtCompressedTileRef encodeTileId(uint32_t salt, uint32_t it) const
 	{
 		return ((dtCompressedTileRef)salt << m_tileBits) | (dtCompressedTileRef)it;
 	}
 	
 	/// Decodes a tile salt.
-	inline unsigned int decodeTileIdSalt(dtCompressedTileRef ref) const
+	inline uint32_t decodeTileIdSalt(dtCompressedTileRef ref) const
 	{
 		const dtCompressedTileRef saltMask = ((dtCompressedTileRef)1<<m_saltBits)-1;
-		return (unsigned int)((ref >> m_tileBits) & saltMask);
+		return (uint32_t)((ref >> m_tileBits) & saltMask);
 	}
 	
 	/// Decodes a tile id.
-	inline unsigned int decodeTileIdTile(dtCompressedTileRef ref) const
+	inline uint32_t decodeTileIdTile(dtCompressedTileRef ref) const
 	{
 		const dtCompressedTileRef tileMask = ((dtCompressedTileRef)1<<m_tileBits)-1;
-		return (unsigned int)(ref & tileMask);
+		return (uint32_t)(ref & tileMask);
 	}
 
 	/// Encodes an obstacle id.
-	inline dtObstacleRef encodeObstacleId(unsigned int salt, unsigned int it) const
+	inline dtObstacleRef encodeObstacleId(uint32_t salt, uint32_t it) const
 	{
 		return ((dtObstacleRef)salt << 16) | (dtObstacleRef)it;
 	}
 	
 	/// Decodes an obstacle salt.
-	inline unsigned int decodeObstacleIdSalt(dtObstacleRef ref) const
+	inline uint32_t decodeObstacleIdSalt(dtObstacleRef ref) const
 	{
 		const dtObstacleRef saltMask = ((dtObstacleRef)1<<16)-1;
-		return (unsigned int)((ref >> 16) & saltMask);
+		return (uint32_t)((ref >> 16) & saltMask);
 	}
 	
 	/// Decodes an obstacle id.
-	inline unsigned int decodeObstacleIdObstacle(dtObstacleRef ref) const
+	inline uint32_t decodeObstacleIdObstacle(dtObstacleRef ref) const
 	{
 		const dtObstacleRef tileMask = ((dtObstacleRef)1<<16)-1;
-		return (unsigned int)(ref & tileMask);
+		return (uint32_t)(ref & tileMask);
 	}
 	
 	
@@ -228,8 +230,8 @@ private:
 	dtCompressedTile* m_nextFreeTile;		///< Freelist of tiles.
 	dtCompressedTile* m_tiles;				///< List of tiles.
 	
-	unsigned int m_saltBits;				///< Number of salt bits in the tile ID.
-	unsigned int m_tileBits;				///< Number of tile bits in the tile ID.
+	uint32_t m_saltBits;				///< Number of salt bits in the tile ID.
+	uint32_t m_tileBits;				///< Number of tile bits in the tile ID.
 	
 	dtTileCacheParams m_params;
 	

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <stdio.h>
 #include <string.h>
 
@@ -447,7 +448,7 @@ TEST_CASE("rcMarkWalkableTriangles", "[recast]")
 	int walkable_tri[] = { 0, 1, 2 };
 	int unwalkable_tri[] = { 0, 2, 1 };
 	int nt = 1;
-	unsigned char areas[] = { RC_NULL_AREA };
+	uint8_t areas[] = { RC_NULL_AREA };
 
 	SECTION("One walkable triangle")
 	{
@@ -489,7 +490,7 @@ TEST_CASE("rcClearUnwalkableTriangles", "[recast]")
 	int walkable_tri[] = { 0, 1, 2 };
 	int unwalkable_tri[] = { 0, 2, 1 };
 	int nt = 1;
-	unsigned char areas[] = { 42 };
+	uint8_t areas[] = { 42 };
 
 	SECTION("Sets area ID of unwalkable triangle to RC_NULL_AREA")
 	{
@@ -524,7 +525,7 @@ TEST_CASE("rcRasterizeTriangles", "[recast]")
 		0, 1, 2,
 		0, 3, 1
 	};
-	unsigned char areas[] = {
+	uint8_t areas[] = {
 		1,
 		2
 	};
@@ -591,7 +592,7 @@ TEST_CASE("rcRasterizeTriangles", "[recast]")
 
 	SECTION("Unsigned short overload")
 	{
-		unsigned short utris[] = {
+		uint16_t utris[] = {
 			0, 1, 2,
 			0, 3, 1
 		};

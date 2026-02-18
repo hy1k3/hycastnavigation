@@ -1,4 +1,5 @@
 ﻿#include <stdio.h>
+#include <cstdint>
 #include <string.h>
 
 #include "catch2/catch_amalgamated.hpp"
@@ -28,7 +29,7 @@ int Incrementor::destructions = 0;
 int Incrementor::copies = 0;
 
 const int kMaxAllocSize = 1024;
-const unsigned char kClearValue = 0xff;
+const uint8_t kClearValue = 0xff;
 
 /// Simple alloc/free that clears the memory on free..
 void* AllocAndInit(size_t size, rcAllocHint) {
