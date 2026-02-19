@@ -736,10 +736,10 @@ void rcCalcGridSize(const Vec3& minBounds, const Vec3& maxBounds, float cellSize
 ///
 /// Only sets the area id's for the walkable triangles.  Does not alter the
 /// area id's for un-walkable triangles.
-/// 
+///
 /// See the #rcConfig documentation for more information on the configuration parameters.
-/// 
-/// @see rcHeightfield, rcClearUnwalkableTriangles, rcRasterizeTriangles
+///
+/// @see rcHeightfield, rcRasterizeTriangles
 /// 
 /// @ingroup recast
 /// @param[in,out]	context				The build context to use during the operation.
@@ -753,26 +753,6 @@ void rcCalcGridSize(const Vec3& minBounds, const Vec3& maxBounds, float cellSize
 void rcMarkWalkableTriangles(rcContext* context, float walkableSlopeAngle, const Vec3* verts, int numVerts,
 							 const int* tris, int numTris, uint8_t* triAreaIDs);
 
-/// Sets the area id of all triangles with a slope greater than or equal to the specified value to #RC_NULL_AREA.
-/// 
-/// Only sets the area id's for the un-walkable triangles.  Does not alter the
-/// area id's for walkable triangles.
-/// 
-/// See the #rcConfig documentation for more information on the configuration parameters.
-/// 
-/// @see rcHeightfield, rcClearUnwalkableTriangles, rcRasterizeTriangles
-/// 
-/// @ingroup recast
-/// @param[in,out]	context				The build context to use during the operation.
-/// @param[in]		walkableSlopeAngle	The maximum slope that is considered walkable.
-/// 									[Limits: 0 <= value < 90] [Units: Degrees]
-/// @param[in]		verts				The vertices. [(x, y, z) * @p nv]
-/// @param[in]		numVerts			The number of vertices.
-/// @param[in]		tris				The triangle vertex indices. [(vertA, vertB, vertC) * @p nt]
-/// @param[in]		numTris				The number of triangles.
-/// @param[out]		triAreaIDs			The triangle area ids. [Length: >= @p nt]
-void rcClearUnwalkableTriangles(rcContext* context, float walkableSlopeAngle, const Vec3* verts, int numVerts,
-								const int* tris, int numTris, uint8_t* triAreaIDs);
 
 /// Adds a span to the specified heightfield.
 /// 

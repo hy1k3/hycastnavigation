@@ -478,40 +478,6 @@ TEST_CASE("rcMarkWalkableTriangles", "[recast]")
 	}
 }
 
-TEST_CASE("rcClearUnwalkableTriangles", "[recast]")
-{
-	rcContext* ctx = 0;
-	float walkableSlopeAngle = 45;
-	Vec3 verts[] = {
-		Vec3(0, 0, 0),
-		Vec3(1, 0, 0),
-		Vec3(0, 0, -1)
-	};
-	int nv = 3;
-	int walkable_tri[] = { 0, 1, 2 };
-	int unwalkable_tri[] = { 0, 2, 1 };
-	int nt = 1;
-	uint8_t areas[] = { 42 };
-
-	SECTION("Sets area ID of unwalkable triangle to RC_NULL_AREA")
-	{
-		rcClearUnwalkableTriangles(ctx, walkableSlopeAngle, verts, nv, unwalkable_tri, nt, areas);
-		REQUIRE(areas[0] == RC_NULL_AREA);
-	}
-
-	SECTION("Does not modify walkable triangle aread ID's")
-	{
-		rcClearUnwalkableTriangles(ctx, walkableSlopeAngle, verts, nv, walkable_tri, nt, areas);
-		REQUIRE(areas[0] == 42);
-	}
-
-	SECTION("Slopes equal to the max slope are considered unwalkable.")
-	{
-		walkableSlopeAngle = 0;
-		rcClearUnwalkableTriangles(ctx, walkableSlopeAngle, verts, nv, walkable_tri, nt, areas);
-		REQUIRE(areas[0] == RC_NULL_AREA);
-	}
-}
 
 TEST_CASE("rcRasterizeTriangles", "[recast]")
 {

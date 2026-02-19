@@ -355,28 +355,6 @@ void rcMarkWalkableTriangles(rcContext* context, const float walkableSlopeAngle,
 	}
 }
 
-void rcClearUnwalkableTriangles(rcContext* context, const float walkableSlopeAngle,
-                                const Vec3* verts, int numVerts,
-                                const int* tris, int numTris,
-                                uint8_t* triAreaIDs)
-{
-	rcIgnoreUnused(context);
-	rcIgnoreUnused(numVerts);
-
-	// The minimum Y value for a face normal of a triangle with a walkable slope.
-	const float walkableLimitY = cosf(walkableSlopeAngle / 180.0f * RC_PI);
-
-	for (int i = 0; i < numTris; ++i)
-	{
-		const int* tri = &tris[i * 3];
-		Vec3 faceNormal = calcTriNormal(verts[tri[0]], verts[tri[1]], verts[tri[2]]);
-		// Check if the face is walkable.
-		if (faceNormal.y <= walkableLimitY)
-		{
-			triAreaIDs[i] = RC_NULL_AREA;
-		}
-	}
-}
 
 int rcGetHeightFieldSpanCount(rcContext* context, const rcHeightfield& heightfield)
 {
