@@ -797,87 +797,44 @@ void rcClearUnwalkableTriangles(rcContext* context, float walkableSlopeAngle, co
                uint16_t spanMin, uint16_t spanMax,
                uint8_t areaID, int flagMergeThreshold);
 
-/// Rasterizes a single triangle into the specified heightfield.
-///
-/// Calling this for each triangle in a mesh is less efficient than calling rcRasterizeTriangles
-///
-/// No spans will be added if the triangle does not overlap the heightfield grid.
-///
-/// @see rcHeightfield
-/// @ingroup recast
-/// @param[in,out]	context				The build context to use during the operation.
-/// @param[in]		v0					Triangle vertex 0 [(x, y, z)]
-/// @param[in]		v1					Triangle vertex 1 [(x, y, z)]
-/// @param[in]		v2					Triangle vertex 2 [(x, y, z)]
-/// @param[in]		areaID				The area id of the triangle. [Limit: <= #RC_WALKABLE_AREA]
-/// @param[in,out]	heightfield			An initialized heightfield.
-/// @param[in]		flagMergeThreshold	The distance where the walkable flag is favored over the non-walkable flag.
-/// 									[Limit: >= 0] [Units: vx]
-/// @returns True if the operation completed successfully.
-[[nodiscard]] bool rcRasterizeTriangle(rcContext* context,
-                         const Vec3& v0, const Vec3& v1, const Vec3& v2,
-                         uint8_t areaID, rcHeightfield& heightfield, int flagMergeThreshold = 1);
+/// Maximum number of triangles per TriChunk.
+static constexpr int RC_SOA_CHUNK = 256;
 
-/// Rasterizes an indexed triangle mesh into the specified heightfield.
+/// Triangle vertex data in Structure-of-Arrays layout for up to RC_SOA_CHUNK triangles.
+///
+/// Build a TriChunk by calling set() for each triangle index, then pass it to
+/// rcRasterizeTriangles.  Chunk at most RC_SOA_CHUNK triangles at a time.
+struct TriChunk
+{
+    float v0x[RC_SOA_CHUNK], v0y[RC_SOA_CHUNK], v0z[RC_SOA_CHUNK];
+    float v1x[RC_SOA_CHUNK], v1y[RC_SOA_CHUNK], v1z[RC_SOA_CHUNK];
+    float v2x[RC_SOA_CHUNK], v2y[RC_SOA_CHUNK], v2z[RC_SOA_CHUNK];
+
+    void set(int i, const Vec3& a, const Vec3& b, const Vec3& c)
+    {
+        v0x[i]=a.x; v0y[i]=a.y; v0z[i]=a.z;
+        v1x[i]=b.x; v1y[i]=b.y; v1z[i]=b.z;
+        v2x[i]=c.x; v2y[i]=c.y; v2z[i]=c.z;
+    }
+};
+
+
+/// Rasterizes up to RC_SOA_CHUNK triangles from a TriChunk into the specified heightfield.
 ///
 /// Spans will only be added for triangles that overlap the heightfield grid.
-/// 
-/// @see rcHeightfield
+///
+/// @see rcHeightfield, TriChunk
 /// @ingroup recast
 /// @param[in,out]	context				The build context to use during the operation.
-/// @param[in]		verts				The vertices. [(x, y, z) * @p nv]
-/// @param[in]		numVerts			The number of vertices. (unused) TODO (graham): Remove in next major release
-/// @param[in]		tris				The triangle indices. [(vertA, vertB, vertC) * @p nt]
-/// @param[in]		triAreaIDs			The area id's of the triangles. [Limit: <= #RC_WALKABLE_AREA] [Size: @p nt]
-/// @param[in]		numTris				The number of triangles.
+/// @param[in]		chunk				Triangle data in SoA layout.
+/// @param[in]		numTris				The number of valid triangles in @p chunk. [Limit: <= RC_SOA_CHUNK]
+/// @param[in]		triAreaIDs			The area id's of the triangles. [Limit: <= #RC_WALKABLE_AREA] [Size: @p numTris]
 /// @param[in,out]	heightfield			An initialized heightfield.
-/// @param[in]		flagMergeThreshold	The distance where the walkable flag is favored over the non-walkable flag. 
+/// @param[in]		flagMergeThreshold	The distance where the walkable flag is favored over the non-walkable flag.
 ///										[Limit: >= 0] [Units: vx]
 /// @returns True if the operation completed successfully.
 [[nodiscard]] bool rcRasterizeTriangles(rcContext* context,
-                          const Vec3* verts, int numVerts,
-                          const int* tris, const uint8_t* triAreaIDs, int numTris,
-                          rcHeightfield& heightfield, int flagMergeThreshold = 1);
-
-/// Rasterizes an indexed triangle mesh into the specified heightfield.
-///
-/// Spans will only be added for triangles that overlap the heightfield grid.
-/// 
-/// @see rcHeightfield
-/// @ingroup recast
-/// @param[in,out]	context				The build context to use during the operation.
-/// @param[in]		verts				The vertices. [(x, y, z) * @p nv]
-/// @param[in]		numVerts			The number of vertices. (unused) TODO (graham): Remove in next major release
-/// @param[in]		tris				The triangle indices. [(vertA, vertB, vertC) * @p nt]
-/// @param[in]		triAreaIDs			The area id's of the triangles. [Limit: <= #RC_WALKABLE_AREA] [Size: @p nt]
-/// @param[in]		numTris				The number of triangles.
-/// @param[in,out]	heightfield			An initialized heightfield.
-/// @param[in]		flagMergeThreshold	The distance where the walkable flag is favored over the non-walkable flag. 
-/// 									[Limit: >= 0] [Units: vx]
-/// @returns True if the operation completed successfully.
-[[nodiscard]] bool rcRasterizeTriangles(rcContext* context,
-                          const Vec3* verts, int numVerts,
-                          const uint16_t* tris, const uint8_t* triAreaIDs, int numTris,
-                          rcHeightfield& heightfield, int flagMergeThreshold = 1);
-
-/// Rasterizes a triangle list into the specified heightfield.
-///
-/// Expects each triangle to be specified as three sequential vertices of 3 floats.
-///
-/// Spans will only be added for triangles that overlap the heightfield grid.
-/// 
-/// @see rcHeightfield
-/// @ingroup recast
-/// @param[in,out]	context				The build context to use during the operation.
-/// @param[in]		verts				The triangle vertices. [(ax, ay, az, bx, by, bz, cx, by, cx) * @p nt]
-/// @param[in]		triAreaIDs			The area id's of the triangles. [Limit: <= #RC_WALKABLE_AREA] [Size: @p nt]
-/// @param[in]		numTris				The number of triangles.
-/// @param[in,out]	heightfield			An initialized heightfield.
-/// @param[in]		flagMergeThreshold	The distance where the walkable flag is favored over the non-walkable flag. 
-/// 									[Limit: >= 0] [Units: vx]
-/// @returns True if the operation completed successfully.
-[[nodiscard]] bool rcRasterizeTriangles(rcContext* context,
-                          const Vec3* verts, const uint8_t* triAreaIDs, int numTris,
+                          const TriChunk& chunk, int numTris, const uint8_t* triAreaIDs,
                           rcHeightfield& heightfield, int flagMergeThreshold = 1);
 
 /// Marks non-walkable spans as walkable if their maximum is within @p walkableClimb of the span below them.

@@ -902,17 +902,18 @@ uint8_t* Sample_TileMesh::buildTileMesh(
 		memset(triareas, 0, numNodeTris * sizeof(uint8_t));
 		rcMarkWalkableTriangles(buildContext, config.walkableSlopeAngle, reinterpret_cast<const Vec3*>(verts), numVerts, nodeTris, numNodeTris, triareas);
 
-		if (!rcRasterizeTriangles(
-				buildContext,
-				reinterpret_cast<const Vec3*>(verts),
-				numVerts,
-				nodeTris,
-				triareas,
-				numNodeTris,
-				*heightfield,
-				config.walkableClimb))
+		const Vec3* nodeVerts = reinterpret_cast<const Vec3*>(verts);
+		for (int base = 0; base < numNodeTris; base += RC_SOA_CHUNK)
 		{
-			return 0;
+			const int count = rcMin(RC_SOA_CHUNK, numNodeTris - base);
+			TriChunk chunk;
+			for (int i = 0; i < count; ++i)
+				chunk.set(i, nodeVerts[nodeTris[(base+i)*3]],
+				             nodeVerts[nodeTris[(base+i)*3+1]],
+				             nodeVerts[nodeTris[(base+i)*3+2]]);
+			if (!rcRasterizeTriangles(buildContext, chunk, count,
+			                         triareas + base, *heightfield, config.walkableClimb))
+				return 0;
 		}
 	}
 

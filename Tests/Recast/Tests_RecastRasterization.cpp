@@ -246,6 +246,14 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	rcHeightfield hf;
 	REQUIRE(rcCreateHeightfield(&ctx, hf, xSize, zSize, minBounds, maxBounds, cellSize, cellHeight));
 
+	// Convenience wrapper: rasterize a single triangle with the walkable area.
+	const uint8_t walkable = RC_WALKABLE_AREA;
+	auto rasterize = [&](const Vec3& a, const Vec3& b, const Vec3& c) -> bool {
+		TriChunk chunk;
+		chunk.set(0, a, b, c);
+		return rcRasterizeTriangles(&ctx, chunk, 1, &walkable, hf, 1);
+	};
+
 	SECTION("Simple triangle in XZ plane")
 	{
 		// Triangle in the XZ plane with vertices (0,0,0), (2,0,0), (0,0,2)
@@ -267,7 +275,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		Vec3 v1(2.0f, 0.0f, 0.0f);
 		Vec3 v2(0.0f, 0.0f, 2.0f);
 
-		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+		REQUIRE(rasterize(v0, v1, v2));
 
 		// Check that only expected cells have spans
 		for (int x = 0; x < xSize; x++)
@@ -298,7 +306,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		Vec3 v1(1.0f, 0.0f, 0.0f);
 		Vec3 v2(0.0f, 0.0f, 1.0f);
 
-		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+		REQUIRE(rasterize(v0, v1, v2));
 
 		// Check that only expected cells have spans
 		for (int x = 0; x < xSize; x++)
@@ -332,7 +340,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		Vec3 v1(4.0f, 0.0f, -2.0f);
 		Vec3 v2(-2.0f, 0.0f, 4.0f);
 
-		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+		REQUIRE(rasterize(v0, v1, v2));
 
 		// Check that only expected cells have spans
 		for (int x = 0; x < xSize; x++)
@@ -362,7 +370,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 			Vec3 v0(-5.0f, 0.0f, -5.0f);
 			Vec3 v1(-5.0f, 0.0f, 5.0f);
 			Vec3 v2(5.0f, 0.0f, -5.0f);
-			REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+			REQUIRE(rasterize(v0, v1, v2));
 
 			// Check that no spans were added
 			for (int x = 0; x < xSize; x++)
@@ -378,7 +386,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 			Vec3 v0(0.0f, -1.0f, 0.0f);
 			Vec3 v1(5.0f, -1.0f, 5.0f);
 			Vec3 v2(5.0f, -1.0f, 0.0f);
-			REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+			REQUIRE(rasterize(v0, v1, v2));
 
 			// Check that no spans were added
 			for (int x = 0; x < xSize; x++)
@@ -394,7 +402,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 			Vec3 v0(0.0f, 40.0f, 0.0f);
 			Vec3 v1(5.0f, 40.0f, 5.0f);
 			Vec3 v2(5.0f, 40.0f, 0.0f);
-			REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+			REQUIRE(rasterize(v0, v1, v2));
 
 			// Check that no spans were added
 			for (int x = 0; x < xSize; x++)
@@ -416,7 +424,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		Vec3 v1(1.01f, 0.0f, -1.0f);
 		Vec3 v2(-1.0f, 0.0f, 1.01f);
 
-		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+		REQUIRE(rasterize(v0, v1, v2));
 
 		// Check that only expected cells have spans
 		for (int x = 0; x < xSize; x++)
@@ -447,7 +455,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		Vec3 v1(0.5f, 0.0f, 0.5f);
 		Vec3 v2(0.5f, 2.01f, 0.5f);
 
-		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+		REQUIRE(rasterize(v0, v1, v2));
 
 		// Check that only expected cells have spans
 		for (int x = 0; x < xSize; x++)
@@ -496,7 +504,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		Vec3 v1(4.0f, 0.0f, 0.5f);
 		Vec3 v2(2.0f, 2.0f, 0.5f);
 
-		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+		REQUIRE(rasterize(v0, v1, v2));
 
 		// Check that only expected cells have spans
 		for (int x = 0; x < xSize; x++)
@@ -535,7 +543,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		Vec3 v1(1.0f, -5.0f, 1.0f);
 		Vec3 v2(0.5f, 15.0f, 0.5f);
 
-		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+		REQUIRE(rasterize(v0, v1, v2));
 
 		// Check that only expected cells have spans
 		for (int x = 0; x < xSize; x++)
@@ -566,7 +574,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 			Vec3 v0(1.0f, 0.0f, 0.5f);
 			Vec3 v1(2.0f, 0.0f, 0.5f);
 			Vec3 v2(4.0f, 0.0f, 0.5f);
-			REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+			REQUIRE(rasterize(v0, v1, v2));
 
 			// Check that no spans were added
 			for (int x = 0; x < xSize; x++)
@@ -581,7 +589,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 
 		{ // All vertices are the same point
 			Vec3 v0(0.5f, 0.0f, 0.5f);
-			REQUIRE(rcRasterizeTriangle(&ctx, v0, v0, v0, RC_WALKABLE_AREA, hf, 1));
+			REQUIRE(rasterize(v0, v0, v0));
 
 			// Check that no spans were added
 			for (int x = 0; x < xSize; x++)
@@ -601,7 +609,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		Vec3 v0(-10.0, 5.5, -10.0);
 		Vec3 v1(-10.0, 5.5, 3);
 		Vec3 v2(3.0, 5.5, -10.0);
-		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
+		REQUIRE(rasterize(v0, v1, v2));
 
 		// Check that no spans were added
 		for (int x = 0; x < xSize; x++)
