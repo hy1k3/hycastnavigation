@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "DetourStatus.h"
+#include "Vec3.h"
 
 typedef uint32_t dtObstacleRef;
 typedef uint32_t dtCompressedTileRef;
@@ -42,21 +43,21 @@ enum ObstacleType
 
 struct dtObstacleCylinder
 {
-	float pos[ 3 ];
+	Vec3 pos;
 	float radius;
 	float height;
 };
 
 struct dtObstacleBox
 {
-	float bmin[ 3 ];
-	float bmax[ 3 ];
+	Vec3 bmin;
+	Vec3 bmax;
 };
 
 struct dtObstacleOrientedBox
 {
-	float center[ 3 ];
-	float halfExtents[ 3 ];
+	Vec3 center;
+	Vec3 halfExtents;
 	float rotAux[ 2 ]; //{ cos(0.5f*angle)*sin(-0.5f*angle); cos(0.5f*angle)*cos(0.5f*angle) - 0.5 }
 };
 
@@ -82,7 +83,7 @@ struct dtTileCacheObstacle
 
 struct dtTileCacheParams
 {
-	float orig[3];
+	Vec3 orig;
 	float cs, ch;
 	int width, height;
 	float walkableHeight;
@@ -135,17 +136,17 @@ public:
 	dtStatus removeTile(dtCompressedTileRef ref, uint8_t** data, int* dataSize);
 	
 	// Cylinder obstacle.
-	dtStatus addObstacle(const float* pos, const float radius, const float height, dtObstacleRef* result);
+	dtStatus addObstacle(const Vec3& pos, const float radius, const float height, dtObstacleRef* result);
 
 	// Aabb obstacle.
-	dtStatus addBoxObstacle(const float* bmin, const float* bmax, dtObstacleRef* result);
+	dtStatus addBoxObstacle(const Vec3& bmin, const Vec3& bmax, dtObstacleRef* result);
 
 	// Box obstacle: can be rotated in Y.
-	dtStatus addBoxObstacle(const float* center, const float* halfExtents, const float yRadians, dtObstacleRef* result);
-	
+	dtStatus addBoxObstacle(const Vec3& center, const Vec3& halfExtents, const float yRadians, dtObstacleRef* result);
+
 	dtStatus removeObstacle(const dtObstacleRef ref);
-	
-	dtStatus queryTiles(const float* bmin, const float* bmax,
+
+	dtStatus queryTiles(const Vec3& bmin, const Vec3& bmax,
 						dtCompressedTileRef* results, int* resultCount, const int maxResults) const;
 	
 	/// Updates the tile cache by rebuilding tiles touched by unfinished obstacle requests.
@@ -160,9 +161,9 @@ public:
 	
 	dtStatus buildNavMeshTile(const dtCompressedTileRef ref, class dtNavMesh* navmesh);
 	
-	void calcTightTileBounds(const struct dtTileCacheLayerHeader* header, float* bmin, float* bmax) const;
-	
-	void getObstacleBounds(const struct dtTileCacheObstacle* ob, float* bmin, float* bmax) const;
+	void calcTightTileBounds(const struct dtTileCacheLayerHeader* header, Vec3& bmin, Vec3& bmax) const;
+
+	void getObstacleBounds(const struct dtTileCacheObstacle* ob, Vec3& bmin, Vec3& bmax) const;
 	
 
 	/// Encodes a tile id.

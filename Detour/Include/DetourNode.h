@@ -21,6 +21,7 @@
 #include <cstdint>
 
 #include "DetourNavMesh.h"
+#include "Vec3.h"
 
 enum dtNodeFlags
 {
@@ -36,7 +37,7 @@ static const int DT_NODE_PARENT_BITS = 24;
 static const int DT_NODE_STATE_BITS = 2;
 struct dtNode
 {
-	float pos[3];								///< Position of the node.
+	Vec3 pos;									///< Position of the node.
 	float cost;									///< Cost from previous node to current node.
 	float total;								///< Cost up to the node.
 	uint32_t pidx : DT_NODE_PARENT_BITS;	///< Index to parent node.

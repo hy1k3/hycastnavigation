@@ -23,6 +23,7 @@
 #include "DetourAssert.h"
 #include "DetourNavMesh.h"
 #include "Sample.h"
+#include "Vec3.h"
 
 class NavmeshFlags
 {
@@ -41,7 +42,7 @@ class NavMeshPruneTool : public SampleTool
 {
 	Sample* sample = nullptr;
 	NavmeshFlags* flags = nullptr;
-	float hitPos[3];
+	Vec3 hitPos;
 	bool hitPosSet = false;
 
 public:

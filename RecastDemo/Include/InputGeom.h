@@ -21,6 +21,7 @@
 #include <cstdint>
 
 #include "PartitionedMesh.h"
+#include "Vec3.h"
 
 #include <string>
 #include <vector>
@@ -69,8 +70,8 @@ struct BuildSettings
 	/// Partition type, see SamplePartitionType
 	int partitionType = 0;
 	/// Bounds of the area to mesh
-	float navMeshBMin[3]{};
-	float navMeshBMax[3]{};
+	Vec3 navMeshBMin{};
+	Vec3 navMeshBMax{};
 	/// Size of the tiles in voxels
 	float tileSize = 0;
 };
@@ -103,8 +104,8 @@ public:
 	std::string filename;
 
 	Mesh mesh;
-	float meshBoundsMin[3] = {};
-	float meshBoundsMax[3] = {};
+	Vec3 meshBoundsMin = {};
+	Vec3 meshBoundsMax = {};
 
 	PartitionedMesh partitionedMesh;
 
@@ -124,8 +125,8 @@ public:
 	bool saveGeomSet(const BuildSettings* settings);
 
 	/// Method to return static mesh data.
-	[[nodiscard]] const float* getNavMeshBoundsMin() const { return hasBuildSettings ? buildSettings.navMeshBMin : meshBoundsMin; }
-	[[nodiscard]] const float* getNavMeshBoundsMax() const { return hasBuildSettings ? buildSettings.navMeshBMax : meshBoundsMax; }
+	[[nodiscard]] const Vec3& getNavMeshBoundsMin() const { return hasBuildSettings ? buildSettings.navMeshBMin : meshBoundsMin; }
+	[[nodiscard]] const Vec3& getNavMeshBoundsMax() const { return hasBuildSettings ? buildSettings.navMeshBMax : meshBoundsMax; }
 	[[nodiscard]] const BuildSettings* getBuildSettings() const { return hasBuildSettings ? &buildSettings : nullptr; }
 	bool raycastMesh(float* src, float* dst, float& tmin) const;
 

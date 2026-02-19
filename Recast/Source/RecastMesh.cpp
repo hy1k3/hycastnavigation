@@ -985,8 +985,8 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 	
 	rcScopedTimer timer(ctx, RC_TIMER_BUILD_POLYMESH);
 
-	rcVcopy(mesh.bmin, cset.bmin);
-	rcVcopy(mesh.bmax, cset.bmax);
+	mesh.bmin = cset.bmin;
+	mesh.bmax = cset.bmax;
 	mesh.cs = cset.cs;
 	mesh.ch = cset.ch;
 	mesh.borderSize = cset.borderSize;
@@ -1106,7 +1106,7 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 		if (ntris <= 0)
 		{
 			// Bad triangulation, should not happen.
-/*			printf("\tconst float bmin[3] = {%ff,%ff,%ff};\n", cset.bmin[0], cset.bmin[1], cset.bmin[2]);
+/*			printf("\tconst float bmin[3] = {%ff,%ff,%ff};\n", cset.bmin.x, cset.bmin.y, cset.bmin.z);
 			printf("\tconst float cs = %ff;\n", cset.cs);
 			printf("\tconst float ch = %ff;\n", cset.ch);
 			printf("\tconst int verts[] = {\n");
@@ -1310,16 +1310,16 @@ bool rcMergePolyMeshes(rcContext* ctx, rcPolyMesh** meshes, const int nmeshes, r
 	mesh.nvp = meshes[0]->nvp;
 	mesh.cs = meshes[0]->cs;
 	mesh.ch = meshes[0]->ch;
-	rcVcopy(mesh.bmin, meshes[0]->bmin);
-	rcVcopy(mesh.bmax, meshes[0]->bmax);
+	mesh.bmin = meshes[0]->bmin;
+	mesh.bmax = meshes[0]->bmax;
 
 	int maxVerts = 0;
 	int maxPolys = 0;
 	int maxVertsPerMesh = 0;
 	for (int i = 0; i < nmeshes; ++i)
 	{
-		rcVmin(mesh.bmin, meshes[i]->bmin);
-		rcVmax(mesh.bmax, meshes[i]->bmax);
+		mesh.bmin = vmin(mesh.bmin, meshes[i]->bmin);
+		mesh.bmax = vmax(mesh.bmax, meshes[i]->bmax);
 		maxVertsPerMesh = rcMax(maxVertsPerMesh, meshes[i]->nverts);
 		maxVerts += meshes[i]->nverts;
 		maxPolys += meshes[i]->npolys;
@@ -1395,13 +1395,13 @@ bool rcMergePolyMeshes(rcContext* ctx, rcPolyMesh** meshes, const int nmeshes, r
 	{
 		const rcPolyMesh* pmesh = meshes[i];
 		
-		const uint16_t ox = (uint16_t)floorf((pmesh->bmin[0]-mesh.bmin[0])/mesh.cs+0.5f);
-		const uint16_t oz = (uint16_t)floorf((pmesh->bmin[2]-mesh.bmin[2])/mesh.cs+0.5f);
+		const uint16_t ox = (uint16_t)floorf((pmesh->bmin.x-mesh.bmin.x)/mesh.cs+0.5f);
+		const uint16_t oz = (uint16_t)floorf((pmesh->bmin.z-mesh.bmin.z)/mesh.cs+0.5f);
 		
 		bool isMinX = (ox == 0);
 		bool isMinZ = (oz == 0);
-		bool isMaxX = ((uint16_t)floorf((mesh.bmax[0] - pmesh->bmax[0]) / mesh.cs + 0.5f)) == 0;
-		bool isMaxZ = ((uint16_t)floorf((mesh.bmax[2] - pmesh->bmax[2]) / mesh.cs + 0.5f)) == 0;
+		bool isMaxX = ((uint16_t)floorf((mesh.bmax.x - pmesh->bmax.x) / mesh.cs + 0.5f)) == 0;
+		bool isMaxZ = ((uint16_t)floorf((mesh.bmax.z - pmesh->bmax.z) / mesh.cs + 0.5f)) == 0;
 		bool isOnBorder = (isMinX || isMinZ || isMaxX || isMaxZ);
 
 		for (int j = 0; j < pmesh->nverts; ++j)
@@ -1491,8 +1491,8 @@ bool rcCopyPolyMesh(rcContext* ctx, const rcPolyMesh& src, rcPolyMesh& dst)
 	dst.npolys = src.npolys;
 	dst.maxpolys = src.npolys;
 	dst.nvp = src.nvp;
-	rcVcopy(dst.bmin, src.bmin);
-	rcVcopy(dst.bmax, src.bmax);
+	dst.bmin = src.bmin;
+	dst.bmax = src.bmax;
 	dst.cs = src.cs;
 	dst.ch = src.ch;
 	dst.borderSize = src.borderSize;

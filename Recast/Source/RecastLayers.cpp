@@ -499,13 +499,12 @@ bool rcBuildHeightfieldLayers(rcContext* ctx, const rcCompactHeightfield& chf,
 	const int lh = h - borderSize*2;
 
 	// Build contracted bbox for layers.
-	float bmin[3], bmax[3];
-	rcVcopy(bmin, chf.bmin);
-	rcVcopy(bmax, chf.bmax);
-	bmin[0] += borderSize*chf.cs;
-	bmin[2] += borderSize*chf.cs;
-	bmax[0] -= borderSize*chf.cs;
-	bmax[2] -= borderSize*chf.cs;
+	Vec3 bmin = chf.bmin;
+	Vec3 bmax = chf.bmax;
+	bmin.x += borderSize*chf.cs;
+	bmin.z += borderSize*chf.cs;
+	bmax.x -= borderSize*chf.cs;
+	bmax.z -= borderSize*chf.cs;
 	
 	lset.nlayers = (int)layerId;
 	
@@ -568,10 +567,10 @@ bool rcBuildHeightfieldLayers(rcContext* ctx, const rcCompactHeightfield& chf,
 		layer->ch = chf.ch;
 		
 		// Adjust the bbox to fit the heightfield.
-		rcVcopy(layer->bmin, bmin);
-		rcVcopy(layer->bmax, bmax);
-		layer->bmin[1] = bmin[1] + hmin*chf.ch;
-		layer->bmax[1] = bmin[1] + hmax*chf.ch;
+		layer->bmin = bmin;
+		layer->bmax = bmax;
+		layer->bmin.y = bmin.y + hmin*chf.ch;
+		layer->bmax.y = bmin.y + hmax*chf.ch;
 		layer->hmin = hmin;
 		layer->hmax = hmax;
 

@@ -19,6 +19,8 @@
 #include <cstdint>
 #include "Tool_ConvexVolume.h"
 
+#include "Vec3.h"
+
 #include "InputGeom.h"
 #include "imguiHelpers.h"
 
@@ -185,37 +187,37 @@ void ConvexVolumeTool::onClick(const float* /*s*/, const float* p, bool shift)
 		// Create
 
 		// If clicked on that last pt, create the shape.
-		if (!points.empty() && rcVdistSqr(p, &points[(numPoints() - 1) * 3]) < rcSqr(0.2f))
+		if (!points.empty() && distSqr(Vec3(p), Vec3(&points[(numPoints() - 1) * 3])) < rcSqr(0.2f))
 		{
 			if (numHull > 2)
 			{
 				// Create shape.
-				float verts[MAX_PTS * 3];
+				Vec3 verts[MAX_PTS];
 				for (int i = 0; i < numHull; ++i)
 				{
-					rcVcopy(&verts[i * 3], &points[hull[i] * 3]);
+					verts[i] = Vec3(&points[hull[i] * 3]);
 				}
 
 				float minh = FLT_MAX, maxh = 0;
 				for (int i = 0; i < numHull; ++i)
 				{
-					minh = rcMin(minh, verts[i * 3 + 1]);
+					minh = rcMin(minh, verts[i].y);
 				}
 				minh -= boxDescent;
 				maxh = minh + boxHeight;
 
 				if (polyOffset > 0.01f)
 				{
-					float offset[MAX_PTS * 2 * 3];
+					Vec3 offset[MAX_PTS * 2];
 					int noffset = rcOffsetPoly(verts, numHull, polyOffset, offset, MAX_PTS * 2);
 					if (noffset > 0)
 					{
-						geom->addConvexVolume(offset, noffset, minh, maxh, (uint8_t)areaType);
+						geom->addConvexVolume(reinterpret_cast<const float*>(offset), noffset, minh, maxh, (uint8_t)areaType);
 					}
 				}
 				else
 				{
-					geom->addConvexVolume(verts, numHull, minh, maxh, (uint8_t)areaType);
+					geom->addConvexVolume(reinterpret_cast<const float*>(verts), numHull, minh, maxh, (uint8_t)areaType);
 				}
 			}
 

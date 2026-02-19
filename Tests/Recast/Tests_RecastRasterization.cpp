@@ -1,5 +1,6 @@
 #include <cstdint>
 #include "Recast.h"
+#include "Vec3.h"
 #include "catch2/catch_amalgamated.hpp"
 
 TEST_CASE("rcAddSpan", "[recast][rasterization]")
@@ -13,8 +14,8 @@ TEST_CASE("rcAddSpan", "[recast][rasterization]")
 	constexpr float cellSize = 1.0f;
 	constexpr float cellHeight = 2.0f;
 
-	constexpr float minBounds[3] {0.0f, 0.0f, 0.0f};
-	constexpr float maxBounds[3] {cellSize * xSize, cellHeight * ySize, cellSize * zSize};
+	const Vec3 minBounds(0.0f, 0.0f, 0.0f);
+	const Vec3 maxBounds(cellSize * xSize, cellHeight * ySize, cellSize * zSize);
 
 	rcHeightfield hf;
 	REQUIRE(rcCreateHeightfield(&ctx, hf, xSize, zSize, minBounds, maxBounds, cellSize, cellHeight));
@@ -207,8 +208,8 @@ TEST_CASE("allocSpan", "[recast][rasterization]")
 	constexpr float cellSize = 1.0f;
 	constexpr float cellHeight = 2.0f;
 
-	constexpr float minBounds[3] {0.0f, 0.0f, 0.0f};
-	constexpr float maxBounds[3] {cellSize * xSize, cellHeight * ySize, cellSize * zSize};
+	const Vec3 minBounds(0.0f, 0.0f, 0.0f);
+	const Vec3 maxBounds(cellSize * xSize, cellHeight * ySize, cellSize * zSize);
 
 	rcHeightfield hf;
 	REQUIRE(rcCreateHeightfield(&ctx, hf, xSize, zSize, minBounds, maxBounds, cellSize, cellHeight));
@@ -239,8 +240,8 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	constexpr float cellSize = 1.0f;
 	constexpr float cellHeight = 1.0f;
 
-	constexpr float minBounds[3] {0.0f, 0.0f, 0.0f};
-	constexpr float maxBounds[3] {cellSize * xSize, cellHeight * ySize, cellSize * zSize};
+	const Vec3 minBounds(0.0f, 0.0f, 0.0f);
+	const Vec3 maxBounds(cellSize * xSize, cellHeight * ySize, cellSize * zSize);
 
 	rcHeightfield hf;
 	REQUIRE(rcCreateHeightfield(&ctx, hf, xSize, zSize, minBounds, maxBounds, cellSize, cellHeight));
@@ -262,9 +263,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		// Should fill cells: (0,0), (0,1), (1,0)
 
 		// Clockwise winding order so the normal points in the positive Y
-		float v0[] = {0.0f, 0.0f, 0.0f};
-		float v1[] = {2.0f, 0.0f, 0.0f};
-		float v2[] = {0.0f, 0.0f, 2.0f};
+		Vec3 v0(0.0f, 0.0f, 0.0f);
+		Vec3 v1(2.0f, 0.0f, 0.0f);
+		Vec3 v2(0.0f, 0.0f, 2.0f);
 
 		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
@@ -293,9 +294,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	SECTION("Simple triangle inside a single voxel")
 	{
 		// Clockwise winding order so the normal points in the positive Y
-		float v0[] = {0.0f, 0.0f, 0.0f};
-		float v1[] = {1.0f, 0.0f, 0.0f};
-		float v2[] = {0.0f, 0.0f, 1.0f};
+		Vec3 v0(0.0f, 0.0f, 0.0f);
+		Vec3 v1(1.0f, 0.0f, 0.0f);
+		Vec3 v2(0.0f, 0.0f, 1.0f);
 
 		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
@@ -327,9 +328,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		// Should fill cells: (0,0), (0,1), (1,0)
 
 		// Clockwise winding order so the normal points in the positive Y
-		float v0[] = {-2.0f, 0.0f, -2.0f};
-		float v1[] = {4.0f, 0.0f, -2.0f};
-		float v2[] = {-2.0f, 0.0f, 4.0f};
+		Vec3 v0(-2.0f, 0.0f, -2.0f);
+		Vec3 v1(4.0f, 0.0f, -2.0f);
+		Vec3 v2(-2.0f, 0.0f, 4.0f);
 
 		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
@@ -358,9 +359,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	SECTION("Triangle outside of heightfield bounds rasterizes to nothing")
 	{
 		{ // Outside xz bounds
-			float v0[] = {-5.0f, 0.0f, -5.0f};
-			float v1[] = {-5.0f, 0.0f, 5.0f};
-			float v2[] = {5.0f, 0.0f, -5.0f};
+			Vec3 v0(-5.0f, 0.0f, -5.0f);
+			Vec3 v1(-5.0f, 0.0f, 5.0f);
+			Vec3 v2(5.0f, 0.0f, -5.0f);
 			REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
 			// Check that no spans were added
@@ -374,9 +375,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		}
 
 		{  // below y bounds
-			float v0[] = {0.0f, -1.0f, 0.0f};
-			float v1[] = {5.0f, -1.0f, 5.0f};
-			float v2[] = {5.0f, -1.0f, 0.0f};
+			Vec3 v0(0.0f, -1.0f, 0.0f);
+			Vec3 v1(5.0f, -1.0f, 5.0f);
+			Vec3 v2(5.0f, -1.0f, 0.0f);
 			REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
 			// Check that no spans were added
@@ -390,9 +391,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		}
 
 		{  // above y bounds
-			float v0[] = {0.0f, 40.0f, 0.0f};
-			float v1[] = {5.0f, 40.0f, 5.0f};
-			float v2[] = {5.0f, 40.0f, 0.0f};
+			Vec3 v0(0.0f, 40.0f, 0.0f);
+			Vec3 v1(5.0f, 40.0f, 5.0f);
+			Vec3 v2(5.0f, 40.0f, 0.0f);
 			REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
 			// Check that no spans were added
@@ -411,9 +412,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		// This triangle when clipped barely overlaps the area of the cell at 0,0
 
 		// Clockwise winding order so the normal points in the positive Y
-		float v0[] = {-1.0f, 0.0f, -1.0f};
-		float v1[] = {1.01f, 0.0f, -1.0f};
-		float v2[] = {-1.0f, 0.0f, 1.01f};
+		Vec3 v0(-1.0f, 0.0f, -1.0f);
+		Vec3 v1(1.01f, 0.0f, -1.0f);
+		Vec3 v2(-1.0f, 0.0f, 1.01f);
 
 		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
@@ -442,9 +443,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	SECTION("A rasterized triangle vertical span includes all the voxels it is in any way part of.")
 	{
 		// Clockwise winding order so the normal points in the positive Y
-		float v0[] = {0.0f, 0.0f, 0.0f};
-		float v1[] = {0.5f, 0.0f, 0.5f};
-		float v2[] = {0.5f, 2.01f, 0.5f};
+		Vec3 v0(0.0f, 0.0f, 0.0f);
+		Vec3 v1(0.5f, 0.0f, 0.5f);
+		Vec3 v2(0.5f, 2.01f, 0.5f);
 
 		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
@@ -491,9 +492,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		//     |
 		//
 
-		float v0[] = {0.0f, 0.0f, 0.5f};
-		float v1[] = {4.0f, 0.0f, 0.5f};
-		float v2[] = {2.0f, 2.0f, 0.5f};
+		Vec3 v0(0.0f, 0.0f, 0.5f);
+		Vec3 v1(4.0f, 0.0f, 0.5f);
+		Vec3 v2(2.0f, 2.0f, 0.5f);
 
 		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
@@ -530,9 +531,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	SECTION("Triangle crossing Y bounds gets clamped")
 	{
 		// This trangle should be clipped to both the max and min Y bounds of the heightfield.
-		float v0[] = {0.0f, -5.0f, 0.0f};
-		float v1[] = {1.0f, -5.0f, 1.0f};
-		float v2[] = {0.5f, 15.0f, 0.5f};
+		Vec3 v0(0.0f, -5.0f, 0.0f);
+		Vec3 v1(1.0f, -5.0f, 1.0f);
+		Vec3 v2(0.5f, 15.0f, 0.5f);
 
 		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
@@ -562,9 +563,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	{
 		SKIP("Currently Recast rasterizes degenerate triangles as if they were a line or point of non-zero volume.");
 		{ // Co-linear points
-			float v0[] = {1.0f, 0.0f, 0.5f};
-			float v1[] = {2.0f, 0.0f, 0.5f};
-			float v2[] = {4.0f, 0.0f, 0.5f};
+			Vec3 v0(1.0f, 0.0f, 0.5f);
+			Vec3 v1(2.0f, 0.0f, 0.5f);
+			Vec3 v2(4.0f, 0.0f, 0.5f);
 			REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
 			// Check that no spans were added
@@ -579,7 +580,7 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 		}
 
 		{ // All vertices are the same point
-			float v0[] = {0.5f, 0.0f, 0.5f};
+			Vec3 v0(0.5f, 0.0f, 0.5f);
 			REQUIRE(rcRasterizeTriangle(&ctx, v0, v0, v0, RC_WALKABLE_AREA, hf, 1));
 
 			// Check that no spans were added
@@ -597,9 +598,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	SECTION("Triangles outside the heightfield with bounding boxes that overlap the heightfield rasterize nothing")
 	{
 		// This is a minimal repro case for the issue fixed in PR #476 (https://github.com/recastnavigation/recastnavigation/pull/476)
-		float v0[] = {-10.0, 5.5, -10.0};
-		float v1[] = {-10.0, 5.5, 3};
-		float v2[] = {3.0, 5.5, -10.0};
+		Vec3 v0(-10.0, 5.5, -10.0);
+		Vec3 v1(-10.0, 5.5, 3);
+		Vec3 v2(3.0, 5.5, -10.0);
 		REQUIRE(rcRasterizeTriangle(&ctx, v0, v1, v2, RC_WALKABLE_AREA, hf, 1));
 
 		// Check that no spans were added

@@ -68,7 +68,7 @@ void OffMeshConnectionTool::onClick(const float* /*rayStartPos*/, const float* r
 		const std::vector<float> verts = geom->offmeshConnVerts;
 		for (int i = 0; i < static_cast<int>(geom->offmeshConnId.size()) * 2; ++i)
 		{
-			const float distance = rcVdistSqr(rayHitPos, &verts[i * 3]);
+			const float distance = distSqr(Vec3(rayHitPos), Vec3(&verts[i * 3]));
 			if (distance < nearestDist)
 			{
 				nearestDist = distance;
@@ -87,13 +87,13 @@ void OffMeshConnectionTool::onClick(const float* /*rayStartPos*/, const float* r
 		// Create
 		if (!hitPosSet)
 		{
-			rcVcopy(hitPos, rayHitPos);
+			hitPos = Vec3(rayHitPos);
 			hitPosSet = true;
 		}
 		else
 		{
 			geom->addOffMeshConnection(
-				hitPos,
+				hitPos.ptr(),
 				rayHitPos,
 				sample->agentRadius,
 				bidirectional ? 1 : 0,

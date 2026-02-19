@@ -7,13 +7,14 @@ set_target_properties(DetourTileCache PROPERTIES
     VERSION ${LIB_VERSION}
     COMPILE_PDB_OUTPUT_DIRECTORY .
     COMPILE_PDB_NAME "DetourTileCache-d"
-    CXX_STANDARD 98
+    CXX_STANDARD 11
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF  # Disable compiler-specific extensions
 )
 
 target_include_directories(DetourTileCache PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Include>"
+    "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Math/Include>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/recastnavigation>"
 )
 

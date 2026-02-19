@@ -21,6 +21,7 @@
 #include <cstdint>
 
 #include "DetourAlloc.h"
+#include "Vec3.h"
 
 /// Represents the source data used to build an navigation mesh tile.
 /// @ingroup detour
@@ -46,7 +47,7 @@ struct dtNavMeshCreateParams
 	/// @{
 
 	const uint32_t* detailMeshes;		///< The height detail sub-mesh data. [Size: 4 * #polyCount]
-	const float* detailVerts;				///< The detail mesh vertices. [Size: 3 * #detailVertsCount] [Unit: wu]
+	const Vec3* detailVerts;			///< The detail mesh vertices. [Size: #detailVertsCount] [Unit: wu]
 	int detailVertsCount;					///< The number of vertices in the detail mesh.
 	const uint8_t* detailTris;		///< The detail mesh triangles. [Size: 4 * #detailTriCount]
 	int detailTriCount;						///< The number of triangles in the detail mesh.
@@ -58,8 +59,8 @@ struct dtNavMeshCreateParams
 	/// at least one of which resides within a navigation mesh polygon.
 	/// @{
 
-	/// Off-mesh connection vertices. [(ax, ay, az, bx, by, bz) * #offMeshConCount] [Unit: wu]
-	const float* offMeshConVerts;
+	/// Off-mesh connection vertices. [(start, end) * #offMeshConCount] [Unit: wu]
+	const Vec3* offMeshConVerts;
 	/// Off-mesh connection radii. [Size: #offMeshConCount] [Unit: wu]
 	const float* offMeshConRad;
 	/// User defined flags assigned to the off-mesh connections. [Size: #offMeshConCount]
@@ -85,8 +86,8 @@ struct dtNavMeshCreateParams
 	int tileX;				///< The tile's x-grid location within the multi-tile destination mesh. (Along the x-axis.)
 	int tileY;				///< The tile's y-grid location within the multi-tile destination mesh. (Along the z-axis.)
 	int tileLayer;			///< The tile's layer within the layered destination mesh. [Limit: >= 0] (Along the y-axis.)
-	float bmin[3];			///< The minimum bounds of the tile. [(x, y, z)] [Unit: wu]
-	float bmax[3];			///< The maximum bounds of the tile. [(x, y, z)] [Unit: wu]
+	Vec3 bmin;				///< The minimum bounds of the tile. [(x, y, z)] [Unit: wu]
+	Vec3 bmax;				///< The maximum bounds of the tile. [(x, y, z)] [Unit: wu]
 
 	/// @}
 	/// @name General Configuration Attributes

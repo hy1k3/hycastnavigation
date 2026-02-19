@@ -220,7 +220,7 @@ void NavMeshPruneTool::onClick(const float* s, const float* p, bool shift)
 		return;
 	}
 
-	dtVcopy(hitPos, p);
+	hitPos = Vec3(p);
 	hitPosSet = true;
 
 	if (!flags)
@@ -229,10 +229,10 @@ void NavMeshPruneTool::onClick(const float* s, const float* p, bool shift)
 		flags->init(nav);
 	}
 
-	constexpr float halfExtents[3] = {2, 4, 2};
+	const Vec3 halfExtents(2, 4, 2);
 	const dtQueryFilter filter;
 	dtPolyRef ref = 0;
-	query->findNearestPoly(p, halfExtents, &filter, &ref, 0);
+	query->findNearestPoly(Vec3(p), halfExtents, &filter, &ref, 0);
 
 	floodNavmesh(nav, flags, ref, 1);
 }

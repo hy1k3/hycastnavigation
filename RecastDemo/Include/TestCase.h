@@ -19,6 +19,7 @@
 #pragma once
 
 #include "DetourNavMesh.h"
+#include "Vec3.h"
 
 #include <cstdint>
 #include <string>
@@ -35,16 +36,16 @@ class TestCase
 	struct Test
 	{
 		TestCase::TestType type{};
-		float spos[3]{};
-		float epos[3]{};
-		float nspos[3]{};
-		float nepos[3]{};
+		Vec3 spos{};
+		Vec3 epos{};
+		Vec3 nspos{};
+		Vec3 nepos{};
 		float radius = 0;
 		uint16_t includeFlags = 0;
 		uint16_t excludeFlags = 0;
 		bool expand = false;
 
-		std::vector<float> straight {};
+		std::vector<Vec3> straight {};
 		std::vector<dtPolyRef*> polys {};
 
 		int findNearestPolyTime = 0;

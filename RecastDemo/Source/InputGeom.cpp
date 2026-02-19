@@ -30,23 +30,19 @@
 
 namespace
 {
-bool intersectSegmentTriangle(const float* sp, const float* sq, const float* a, const float* b, const float* c, float& t)
+bool intersectSegmentTriangle(const Vec3& sp, const Vec3& sq, const Vec3& a, const Vec3& b, const Vec3& c, float& t)
 {
-	float ab[3];
-	rcVsub(ab, b, a);
-	float ac[3];
-	rcVsub(ac, c, a);
-	float qp[3];
-	rcVsub(qp, sp, sq);
+	Vec3 ab = b - a;
+	Vec3 ac = c - a;
+	Vec3 qp = sp - sq;
 
 	// Compute triangle normal. Can be precalculated or cached if
 	// intersecting multiple segments against the same triangle
-	float norm[3];
-	rcVcross(norm, ab, ac);
+	Vec3 norm = ab.cross(ac);
 
 	// Compute denominator d. If d <= 0, segment is parallel to or points
 	// away from triangle, so exit early
-	float d = rcVdot(qp, norm);
+	float d = qp.dot(norm);
 	if (d <= 0.0f)
 	{
 		return false;
@@ -55,9 +51,8 @@ bool intersectSegmentTriangle(const float* sp, const float* sq, const float* a, 
 	// Compute intersection t value of pq with plane of triangle. A ray
 	// intersects iff 0 <= t. Segment intersects iff 0 <= t <= 1. Delay
 	// dividing by d until intersection has been found to pierce triangle
-	float ap[3];
-	rcVsub(ap, sp, a);
-	t = rcVdot(ap, norm);
+	Vec3 ap = sp - a;
+	t = ap.dot(norm);
 	if (t < 0.0f)
 	{
 		return false;
@@ -68,14 +63,13 @@ bool intersectSegmentTriangle(const float* sp, const float* sq, const float* a, 
 	}  // For segment; exclude this code line for a ray test
 
 	// Compute barycentric coordinate components and test if within bounds
-	float e[3];
-	rcVcross(e, qp, ap);
-	float v = rcVdot(ac, e);
+	Vec3 e = qp.cross(ap);
+	float v = ac.dot(e);
 	if (v < 0.0f || v > d)
 	{
 		return false;
 	}
-	float w = -rcVdot(ab, e);
+	float w = -ab.dot(e);
 	if (w < 0.0f || v + w > d)
 	{
 		return false;
@@ -87,12 +81,11 @@ bool intersectSegmentTriangle(const float* sp, const float* sq, const float* a, 
 	return true;
 }
 
-bool isectSegAABB(const float* sp, const float* sq, const float* amin, const float* amax, float& tmin, float& tmax)
+bool isectSegAABB(const Vec3& sp, const Vec3& sq, const Vec3& amin, const Vec3& amax, float& tmin, float& tmax)
 {
 	static constexpr float EPS = 1e-6f;
 
-	float d[3];
-	rcVsub(d, sq, sp);
+	Vec3 d = sq - sp;
 	tmin = 0.0;
 	tmax = 1.0f;
 
@@ -358,7 +351,7 @@ bool InputGeom::loadMesh(rcContext* ctx, const std::string& filepath)
 
 	mesh.reset();
 	mesh.readFromObj(buffer, bufferLen);
-	rcCalcBounds(mesh.verts.data(), mesh.getVertCount(), meshBoundsMin, meshBoundsMax);
+	rcCalcBounds(reinterpret_cast<const Vec3*>(mesh.verts.data()), mesh.getVertCount(), meshBoundsMin, meshBoundsMax);
 
 	partitionedMesh = {}; // Reset the partitioned mesh
 	partitionedMesh.PartitionMesh(mesh.verts.data(), mesh.tris.data(), mesh.getTriCount(), 256);
@@ -603,7 +596,7 @@ bool InputGeom::raycastMesh(float* src, float* dst, float& tmin) const
 	// Prune hit ray.
 	float btmin;
 	float btmax;
-	if (!isectSegAABB(src, dst, meshBoundsMin, meshBoundsMax, btmin, btmax))
+	if (!isectSegAABB(Vec3(src), Vec3(dst), meshBoundsMin, meshBoundsMax, btmin, btmax))
 	{
 		return false;
 	}
@@ -631,11 +624,11 @@ bool InputGeom::raycastMesh(float* src, float* dst, float& tmin) const
 		{
 			float t = 1;
 			if (intersectSegmentTriangle(
-					src,
-					dst,
-					&mesh.verts[tris[j] * 3],
-					&mesh.verts[tris[j + 1] * 3],
-					&mesh.verts[tris[j + 2] * 3],
+					Vec3(src),
+					Vec3(dst),
+					Vec3(&mesh.verts[tris[j] * 3]),
+					Vec3(&mesh.verts[tris[j + 1] * 3]),
+					Vec3(&mesh.verts[tris[j + 2] * 3]),
 					t))
 			{
 				tmin = std::min(t, tmin);
@@ -657,8 +650,8 @@ void InputGeom::addOffMeshConnection(
 {
 	offmeshConnVerts.resize(offmeshConnVerts.size() + 3 * 2);
 	float* v = &offmeshConnVerts[offmeshConnVerts.size() - 3 * 2];
-	rcVcopy(&v[0], startPos);
-	rcVcopy(&v[3], endPos);
+	v[0] = startPos[0]; v[1] = startPos[1]; v[2] = startPos[2];
+	v[3] = endPos[0];   v[4] = endPos[1];   v[5] = endPos[2];
 	offmeshConnRadius.emplace_back(radius);
 	offmeshConnBidirectional.emplace_back(bidirectional);
 	offmeshConnArea.emplace_back(area);

@@ -2220,12 +2220,12 @@ bool dtTileCacheHeaderSwapEndian(uint8_t* data, const int dataSize)
 	dtSwapEndian(&header->tx);
 	dtSwapEndian(&header->ty);
 	dtSwapEndian(&header->tlayer);
-	dtSwapEndian(&header->bmin[0]);
-	dtSwapEndian(&header->bmin[1]);
-	dtSwapEndian(&header->bmin[2]);
-	dtSwapEndian(&header->bmax[0]);
-	dtSwapEndian(&header->bmax[1]);
-	dtSwapEndian(&header->bmax[2]);
+	dtSwapEndian(&header->bmin.x);
+	dtSwapEndian(&header->bmin.y);
+	dtSwapEndian(&header->bmin.z);
+	dtSwapEndian(&header->bmax.x);
+	dtSwapEndian(&header->bmax.y);
+	dtSwapEndian(&header->bmax.z);
 	dtSwapEndian(&header->hmin);
 	dtSwapEndian(&header->hmax);
 	

@@ -51,20 +51,20 @@ static void insertSort(uint8_t* data, const int dataLength)
 /// @param[in]	verts		The polygon vertices
 /// @param[in]	point		The point to check
 /// @returns true if the point lies within the polygon, false otherwise.
-static bool pointInPoly(int numVerts, const float* verts, const float* point)
+static bool pointInPoly(int numVerts, const Vec3* verts, const Vec3& point)
 {
 	bool inPoly = false;
 	for (int i = 0, j = numVerts - 1; i < numVerts; j = i++)
 	{
-		const float* vi = &verts[i * 3];
-		const float* vj = &verts[j * 3];
+		const Vec3& vi = verts[i];
+		const Vec3& vj = verts[j];
 
-		if ((vi[2] > point[2]) == (vj[2] > point[2]))
+		if ((vi.z > point.z) == (vj.z > point.z))
 		{
 			continue;
 		}
 
-		if (point[0] >= (vj[0] - vi[0]) * (point[2] - vi[2]) / (vj[2] - vi[2]) + vi[0])
+		if (point.x >= (vj.x - vi.x) * (point.z - vi.z) / (vj.z - vi.z) + vi.x)
 		{
 			continue;
 		}
@@ -369,7 +369,7 @@ bool rcMedianFilterWalkableArea(rcContext* context, rcCompactHeightfield& compac
 	return true;
 }
 
-void rcMarkBoxArea(rcContext* context, const float* boxMinBounds, const float* boxMaxBounds, uint8_t areaId,
+void rcMarkBoxArea(rcContext* context, const Vec3& boxMinBounds, const Vec3& boxMaxBounds, uint8_t areaId,
                    rcCompactHeightfield& compactHeightfield)
 {
 	rcAssert(context);
@@ -380,13 +380,13 @@ void rcMarkBoxArea(rcContext* context, const float* boxMinBounds, const float* b
 	const int zSize = compactHeightfield.height;
 	const int zStride = xSize; // For readability
 
-	// Find the footprint of the box area in grid cell coordinates. 
-	int minX = (int)((boxMinBounds[0] - compactHeightfield.bmin[0]) / compactHeightfield.cs);
-	int minY = (int)((boxMinBounds[1] - compactHeightfield.bmin[1]) / compactHeightfield.ch);
-	int minZ = (int)((boxMinBounds[2] - compactHeightfield.bmin[2]) / compactHeightfield.cs);
-	int maxX = (int)((boxMaxBounds[0] - compactHeightfield.bmin[0]) / compactHeightfield.cs);
-	int maxY = (int)((boxMaxBounds[1] - compactHeightfield.bmin[1]) / compactHeightfield.ch);
-	int maxZ = (int)((boxMaxBounds[2] - compactHeightfield.bmin[2]) / compactHeightfield.cs);
+	// Find the footprint of the box area in grid cell coordinates.
+	int minX = (int)((boxMinBounds.x - compactHeightfield.bmin.x) / compactHeightfield.cs);
+	int minY = (int)((boxMinBounds.y - compactHeightfield.bmin.y) / compactHeightfield.ch);
+	int minZ = (int)((boxMinBounds.z - compactHeightfield.bmin.z) / compactHeightfield.cs);
+	int maxX = (int)((boxMaxBounds.x - compactHeightfield.bmin.x) / compactHeightfield.cs);
+	int maxY = (int)((boxMaxBounds.y - compactHeightfield.bmin.y) / compactHeightfield.ch);
+	int maxZ = (int)((boxMaxBounds.z - compactHeightfield.bmin.z) / compactHeightfield.cs);
 
 	// Early-out if the box is outside the bounds of the grid.
 	if (maxX < 0) { return; }
@@ -430,7 +430,7 @@ void rcMarkBoxArea(rcContext* context, const float* boxMinBounds, const float* b
 	}
 }
 
-void rcMarkConvexPolyArea(rcContext* context, const float* verts, const int numVerts,
+void rcMarkConvexPolyArea(rcContext* context, const Vec3* verts, const int numVerts,
 						  const float minY, const float maxY, uint8_t areaId,
 						  rcCompactHeightfield& compactHeightfield)
 {
@@ -443,25 +443,23 @@ void rcMarkConvexPolyArea(rcContext* context, const float* verts, const int numV
 	const int zStride = xSize; // For readability
 
 	// Compute the bounding box of the polygon
-	float bmin[3];
-	float bmax[3];
-	rcVcopy(bmin, verts);
-	rcVcopy(bmax, verts);
+	Vec3 bmin = verts[0];
+	Vec3 bmax = verts[0];
 	for (int i = 1; i < numVerts; ++i)
 	{
-		rcVmin(bmin, &verts[i * 3]);
-		rcVmax(bmax, &verts[i * 3]);
+		bmin = vmin(bmin, verts[i]);
+		bmax = vmax(bmax, verts[i]);
 	}
-	bmin[1] = minY;
-	bmax[1] = maxY;
+	bmin.y = minY;
+	bmax.y = maxY;
 
-	// Compute the grid footprint of the polygon 
-	int minx = (int)((bmin[0] - compactHeightfield.bmin[0]) / compactHeightfield.cs);
-	int miny = (int)((bmin[1] - compactHeightfield.bmin[1]) / compactHeightfield.ch);
-	int minz = (int)((bmin[2] - compactHeightfield.bmin[2]) / compactHeightfield.cs);
-	int maxx = (int)((bmax[0] - compactHeightfield.bmin[0]) / compactHeightfield.cs);
-	int maxy = (int)((bmax[1] - compactHeightfield.bmin[1]) / compactHeightfield.ch);
-	int maxz = (int)((bmax[2] - compactHeightfield.bmin[2]) / compactHeightfield.cs);
+	// Compute the grid footprint of the polygon
+	int minx = (int)((bmin.x - compactHeightfield.bmin.x) / compactHeightfield.cs);
+	int miny = (int)((bmin.y - compactHeightfield.bmin.y) / compactHeightfield.ch);
+	int minz = (int)((bmin.z - compactHeightfield.bmin.z) / compactHeightfield.cs);
+	int maxx = (int)((bmax.x - compactHeightfield.bmin.x) / compactHeightfield.cs);
+	int maxy = (int)((bmax.y - compactHeightfield.bmin.y) / compactHeightfield.ch);
+	int maxz = (int)((bmax.z - compactHeightfield.bmin.z) / compactHeightfield.cs);
 
 	// Early-out if the polygon lies entirely outside the grid.
 	if (maxx < 0) { return; }
@@ -498,12 +496,12 @@ void rcMarkConvexPolyArea(rcContext* context, const float* verts, const int numV
 					continue;
 				}
 
-				const float point[] = {
-					compactHeightfield.bmin[0] + ((float)x + 0.5f) * compactHeightfield.cs,
+				Vec3 point(
+					compactHeightfield.bmin.x + ((float)x + 0.5f) * compactHeightfield.cs,
 					0,
-					compactHeightfield.bmin[2] + ((float)z + 0.5f) * compactHeightfield.cs
-				};
-				
+					compactHeightfield.bmin.z + ((float)z + 0.5f) * compactHeightfield.cs
+				);
+
 				if (pointInPoly(numVerts, verts, point))
 				{
 					compactHeightfield.areas[spanIndex] = areaId;
@@ -517,20 +515,20 @@ static const float EPSILON = 1e-6f;
 
 /// Normalizes the vector if the length is greater than zero.
 /// If the magnitude is zero, the vector is unchanged.
-/// @param[in,out]	v	The vector to normalize. [(x, y, z)]
-static void rcVsafeNormalize(float* v)
+/// @param[in,out]	v	The vector to normalize.
+static void rcVsafeNormalize(Vec3& v)
 {
-	const float sqMag = rcSqr(v[0]) + rcSqr(v[1]) + rcSqr(v[2]);
+	const float sqMag = rcSqr(v.x) + rcSqr(v.y) + rcSqr(v.z);
 	if (sqMag > EPSILON)
 	{
 		const float inverseMag = 1.0f / rcSqrt(sqMag);
-		v[0] *= inverseMag;
-		v[1] *= inverseMag;
-		v[2] *= inverseMag;
+		v.x *= inverseMag;
+		v.y *= inverseMag;
+		v.z *= inverseMag;
 	}
 }
 
-int rcOffsetPoly(const float* verts, const int numVerts, const float offset, float* outVerts, const int maxOutVerts)
+int rcOffsetPoly(const Vec3* verts, const int numVerts, const float offset, Vec3* outVerts, const int maxOutVerts)
 {
 	// Defines the limit at which a miter becomes a bevel.
 	// Similar in behavior to https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/stroke-miterlimit
@@ -540,56 +538,54 @@ int rcOffsetPoly(const float* verts, const int numVerts, const float offset, flo
 
 	for (int vertIndex = 0; vertIndex < numVerts; vertIndex++)
 	{
-        // Grab three vertices of the polygon.
+		// Grab three vertices of the polygon.
 		const int vertIndexA = (vertIndex + numVerts - 1) % numVerts;
 		const int vertIndexB = vertIndex;
 		const int vertIndexC = (vertIndex + 1) % numVerts;
-		const float* vertA = &verts[vertIndexA * 3];
-		const float* vertB = &verts[vertIndexB * 3];
-		const float* vertC = &verts[vertIndexC * 3];
+		const Vec3& vertA = verts[vertIndexA];
+		const Vec3& vertB = verts[vertIndexB];
+		const Vec3& vertC = verts[vertIndexC];
 
-        // From A to B on the x/z plane
-		float prevSegmentDir[3];
-		rcVsub(prevSegmentDir, vertB, vertA);
-		prevSegmentDir[1] = 0; // Squash onto x/z plane
+		// From A to B on the x/z plane
+		Vec3 prevSegmentDir = vertB - vertA;
+		prevSegmentDir.y = 0; // Squash onto x/z plane
 		rcVsafeNormalize(prevSegmentDir);
-		
-        // From B to C on the x/z plane
-		float currSegmentDir[3];
-		rcVsub(currSegmentDir, vertC, vertB);
-		currSegmentDir[1] = 0; // Squash onto x/z plane
+
+		// From B to C on the x/z plane
+		Vec3 currSegmentDir = vertC - vertB;
+		currSegmentDir.y = 0; // Squash onto x/z plane
 		rcVsafeNormalize(currSegmentDir);
 
-        // The y component of the cross product of the two normalized segment directions.
-        // The X and Z components of the cross product are both zero because the two
-        // segment direction vectors fall within the x/z plane.
-        float cross = currSegmentDir[0] * prevSegmentDir[2] - prevSegmentDir[0] * currSegmentDir[2];
+		// The y component of the cross product of the two normalized segment directions.
+		// The X and Z components of the cross product are both zero because the two
+		// segment direction vectors fall within the x/z plane.
+		float cross = currSegmentDir.x * prevSegmentDir.z - prevSegmentDir.x * currSegmentDir.z;
 
-        // CCW perpendicular vector to AB.  The segment normal.
-		const float prevSegmentNormX = -prevSegmentDir[2];
-		const float prevSegmentNormZ = prevSegmentDir[0];
+		// CCW perpendicular vector to AB.  The segment normal.
+		const float prevSegmentNormX = -prevSegmentDir.z;
+		const float prevSegmentNormZ = prevSegmentDir.x;
 
-        // CCW perpendicular vector to BC.  The segment normal.
-		const float currSegmentNormX = -currSegmentDir[2];
-		const float currSegmentNormZ = currSegmentDir[0];
+		// CCW perpendicular vector to BC.  The segment normal.
+		const float currSegmentNormX = -currSegmentDir.z;
+		const float currSegmentNormZ = currSegmentDir.x;
 
-        // Average the two segment normals to get the proportional miter offset for B.
-        // This isn't normalized because it's defining the distance and direction the corner will need to be
-        // adjusted proportionally to the edge offsets to properly miter the adjoining edges.
+		// Average the two segment normals to get the proportional miter offset for B.
+		// This isn't normalized because it's defining the distance and direction the corner will need to be
+		// adjusted proportionally to the edge offsets to properly miter the adjoining edges.
 		float cornerMiterX = (prevSegmentNormX + currSegmentNormX) * 0.5f;
 		float cornerMiterZ = (prevSegmentNormZ + currSegmentNormZ) * 0.5f;
-        const float cornerMiterSqMag = rcSqr(cornerMiterX) + rcSqr(cornerMiterZ);
+		const float cornerMiterSqMag = rcSqr(cornerMiterX) + rcSqr(cornerMiterZ);
 
-        // If the magnitude of the segment normal average is less than about .69444,
-        // the corner is an acute enough angle that the result should be beveled.
-        const bool bevel = cornerMiterSqMag * MITER_LIMIT * MITER_LIMIT < 1.0f;
+		// If the magnitude of the segment normal average is less than about .69444,
+		// the corner is an acute enough angle that the result should be beveled.
+		const bool bevel = cornerMiterSqMag * MITER_LIMIT * MITER_LIMIT < 1.0f;
 
-        // Scale the corner miter so it's proportional to how much the corner should be offset compared to the edges.
+		// Scale the corner miter so it's proportional to how much the corner should be offset compared to the edges.
 		if (cornerMiterSqMag > EPSILON)
 		{
 			const float scale = 1.0f / cornerMiterSqMag;
-            cornerMiterX *= scale;
-            cornerMiterZ *= scale;
+			cornerMiterX *= scale;
+			cornerMiterZ *= scale;
 		}
 
 		if (bevel && cross < 0.0f) // If the corner is convex and an acute enough angle, generate a bevel.
@@ -599,18 +595,18 @@ int rcOffsetPoly(const float* verts, const int numVerts, const float offset, flo
 				return 0;
 			}
 
-            // Generate two bevel vertices at a distances from B proportional to the angle between the two segments.
-            // Move each bevel vertex out proportional to the given offset.
-			float d = (1.0f - (prevSegmentDir[0] * currSegmentDir[0] + prevSegmentDir[2] * currSegmentDir[2])) * 0.5f;
+			// Generate two bevel vertices at a distances from B proportional to the angle between the two segments.
+			// Move each bevel vertex out proportional to the given offset.
+			float d = (1.0f - (prevSegmentDir.x * currSegmentDir.x + prevSegmentDir.z * currSegmentDir.z)) * 0.5f;
 
-			outVerts[numOutVerts * 3 + 0] = vertB[0] + (-prevSegmentNormX + prevSegmentDir[0] * d) * offset;
-			outVerts[numOutVerts * 3 + 1] = vertB[1];
-			outVerts[numOutVerts * 3 + 2] = vertB[2] + (-prevSegmentNormZ + prevSegmentDir[2] * d) * offset;
+			outVerts[numOutVerts] = Vec3(vertB.x + (-prevSegmentNormX + prevSegmentDir.x * d) * offset,
+			                            vertB.y,
+			                            vertB.z + (-prevSegmentNormZ + prevSegmentDir.z * d) * offset);
 			numOutVerts++;
 
-			outVerts[numOutVerts * 3 + 0] = vertB[0] + (-currSegmentNormX - currSegmentDir[0] * d) * offset;
-			outVerts[numOutVerts * 3 + 1] = vertB[1];
-			outVerts[numOutVerts * 3 + 2] = vertB[2] + (-currSegmentNormZ - currSegmentDir[2] * d) * offset;
+			outVerts[numOutVerts] = Vec3(vertB.x + (-currSegmentNormX - currSegmentDir.x * d) * offset,
+			                            vertB.y,
+			                            vertB.z + (-currSegmentNormZ - currSegmentDir.z * d) * offset);
 			numOutVerts++;
 		}
 		else
@@ -620,10 +616,10 @@ int rcOffsetPoly(const float* verts, const int numVerts, const float offset, flo
 				return 0;
 			}
 
-            // Move B along the miter direction by the specified offset.
-			outVerts[numOutVerts * 3 + 0] = vertB[0] - cornerMiterX * offset;
-			outVerts[numOutVerts * 3 + 1] = vertB[1];
-			outVerts[numOutVerts * 3 + 2] = vertB[2] - cornerMiterZ * offset;
+			// Move B along the miter direction by the specified offset.
+			outVerts[numOutVerts] = Vec3(vertB.x - cornerMiterX * offset,
+			                            vertB.y,
+			                            vertB.z - cornerMiterZ * offset);
 			numOutVerts++;
 		}
 	}
@@ -631,7 +627,7 @@ int rcOffsetPoly(const float* verts, const int numVerts, const float offset, flo
 	return numOutVerts;
 }
 
-void rcMarkCylinderArea(rcContext* context, const float* position, const float radius, const float height,
+void rcMarkCylinderArea(rcContext* context, const Vec3& position, const float radius, const float height,
                         uint8_t areaId, rcCompactHeightfield& compactHeightfield)
 {
 	rcAssert(context);
@@ -642,27 +638,13 @@ void rcMarkCylinderArea(rcContext* context, const float* position, const float r
 	const int zSize = compactHeightfield.height;
 	const int zStride = xSize; // For readability
 
-	// Compute the bounding box of the cylinder
-	const float cylinderBBMin[] =
-	{
-		position[0] - radius,
-		position[1],
-		position[2] - radius
-	};
-	const float cylinderBBMax[] =
-	{
-		position[0] + radius,
-		position[1] + height,
-		position[2] + radius
-	};
-
 	// Compute the grid footprint of the cylinder
-	int minx = (int)((cylinderBBMin[0] - compactHeightfield.bmin[0]) / compactHeightfield.cs);
-	int miny = (int)((cylinderBBMin[1] - compactHeightfield.bmin[1]) / compactHeightfield.ch);
-	int minz = (int)((cylinderBBMin[2] - compactHeightfield.bmin[2]) / compactHeightfield.cs);
-	int maxx = (int)((cylinderBBMax[0] - compactHeightfield.bmin[0]) / compactHeightfield.cs);
-	int maxy = (int)((cylinderBBMax[1] - compactHeightfield.bmin[1]) / compactHeightfield.ch);
-	int maxz = (int)((cylinderBBMax[2] - compactHeightfield.bmin[2]) / compactHeightfield.cs);
+	int minx = (int)((position.x - radius - compactHeightfield.bmin.x) / compactHeightfield.cs);
+	int miny = (int)((position.y         - compactHeightfield.bmin.y) / compactHeightfield.ch);
+	int minz = (int)((position.z - radius - compactHeightfield.bmin.z) / compactHeightfield.cs);
+	int maxx = (int)((position.x + radius - compactHeightfield.bmin.x) / compactHeightfield.cs);
+	int maxy = (int)((position.y + height  - compactHeightfield.bmin.y) / compactHeightfield.ch);
+	int maxz = (int)((position.z + radius - compactHeightfield.bmin.z) / compactHeightfield.cs);
 
 	// Early-out if the cylinder is completely outside the grid bounds.
     if (maxx < 0) { return; }
@@ -685,10 +667,10 @@ void rcMarkCylinderArea(rcContext* context, const float* position, const float r
 			const rcCompactCell& cell = compactHeightfield.cells[x + z * zStride];
 			const int maxSpanIndex = (int)(cell.index + cell.count);
 
-			const float cellX = compactHeightfield.bmin[0] + ((float)x + 0.5f) * compactHeightfield.cs;
-			const float cellZ = compactHeightfield.bmin[2] + ((float)z + 0.5f) * compactHeightfield.cs;
-			const float deltaX = cellX - position[0];
-            const float deltaZ = cellZ - position[2];
+			const float cellX = compactHeightfield.bmin.x + ((float)x + 0.5f) * compactHeightfield.cs;
+			const float cellZ = compactHeightfield.bmin.z + ((float)z + 0.5f) * compactHeightfield.cs;
+			const float deltaX = cellX - position.x;
+		const float deltaZ = cellZ - position.z;
 
 			// Skip this column if it's too far from the center point of the cylinder.
             if (rcSqr(deltaX) + rcSqr(deltaZ) >= radiusSq)

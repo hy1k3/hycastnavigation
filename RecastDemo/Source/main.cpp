@@ -176,8 +176,8 @@ int main(int /*argc*/, char** /*argv*/)
 					if (app.sample && app.inputGeometry)
 					{
 						BuildSettings settings;
-						rcVcopy(settings.navMeshBMin, app.inputGeometry->getNavMeshBoundsMin());
-						rcVcopy(settings.navMeshBMax, app.inputGeometry->getNavMeshBoundsMax());
+						settings.navMeshBMin = app.inputGeometry->getNavMeshBoundsMin();
+						settings.navMeshBMax = app.inputGeometry->getNavMeshBoundsMax();
 						app.sample->collectSettings(settings);
 						app.inputGeometry->saveGeomSet(&settings);
 					}

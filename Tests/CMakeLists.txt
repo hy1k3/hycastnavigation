@@ -13,7 +13,10 @@ else()
 	target_compile_options(Tests PRIVATE -Wno-error)
 endif()
 
-target_include_directories(Tests PRIVATE ./Contrib)
+target_include_directories(Tests PRIVATE
+    ./Contrib
+    "${CMAKE_SOURCE_DIR}/Math/Include"
+)
 
 target_sources(Tests PRIVATE 
 	Contrib/catch2/catch_amalgamated.cpp

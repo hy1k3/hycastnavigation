@@ -19,6 +19,7 @@
 #pragma once
 
 #include <cstdint>
+#include "Vec3.h"
 
 /// The value of PI used by Recast.
 static const float RC_PI = 3.14159265f;
@@ -235,10 +236,10 @@ struct rcConfig
 	float ch;
 
 	/// The minimum bounds of the field's AABB. [(x, y, z)] [Units: wu]
-	float bmin[3]; 
+	Vec3 bmin;
 
 	/// The maximum bounds of the field's AABB. [(x, y, z)] [Units: wu]
-	float bmax[3];
+	Vec3 bmax;
 
 	/// The maximum slope that is considered walkable. [Limits: 0 <= value < 90] [Units: Degrees] 
 	float walkableSlopeAngle;
@@ -317,8 +318,8 @@ struct rcHeightfield
 
 	int width;			///< The width of the heightfield. (Along the x-axis in cell units.)
 	int height;			///< The height of the heightfield. (Along the z-axis in cell units.)
-	float bmin[3];  	///< The minimum bounds in world space. [(x, y, z)]
-	float bmax[3];		///< The maximum bounds in world space. [(x, y, z)]
+	Vec3 bmin;  		///< The minimum bounds in world space. [(x, y, z)]
+	Vec3 bmax;			///< The maximum bounds in world space. [(x, y, z)]
 	float cs;			///< The size of each cell. (On the xz-plane.)
 	float ch;			///< The height of each cell. (The minimum increment along the y-axis.)
 	rcSpan** spans;		///< Heightfield of spans (width*height).
@@ -362,10 +363,10 @@ struct rcCompactHeightfield
 	int walkableHeight;			///< The walkable height used during the build of the field.  (See: rcConfig::walkableHeight)
 	int walkableClimb;			///< The walkable climb used during the build of the field. (See: rcConfig::walkableClimb)
 	int borderSize;				///< The AABB border size used during the build of the field. (See: rcConfig::borderSize)
-	uint16_t maxDistance;	///< The maximum distance value of any span within the field. 
-	uint16_t maxRegions;	///< The maximum region id of any span within the field. 
-	float bmin[3];				///< The minimum bounds in world space. [(x, y, z)]
-	float bmax[3];				///< The maximum bounds in world space. [(x, y, z)]
+	uint16_t maxDistance;	///< The maximum distance value of any span within the field.
+	uint16_t maxRegions;	///< The maximum region id of any span within the field.
+	Vec3 bmin;				///< The minimum bounds in world space. [(x, y, z)]
+	Vec3 bmax;				///< The maximum bounds in world space. [(x, y, z)]
 	float cs;					///< The size of each cell. (On the xz-plane.)
 	float ch;					///< The height of each cell. (The minimum increment along the y-axis.)
 	rcCompactCell* cells;		///< Array of cells. [Size: #width*#height]
@@ -383,8 +384,8 @@ private:
 /// @see rcHeightfieldLayerSet
 struct rcHeightfieldLayer
 {
-	float bmin[3];				///< The minimum bounds in world space. [(x, y, z)]
-	float bmax[3];				///< The maximum bounds in world space. [(x, y, z)]
+	Vec3 bmin;				///< The minimum bounds in world space. [(x, y, z)]
+	Vec3 bmax;				///< The maximum bounds in world space. [(x, y, z)]
 	float cs;					///< The size of each cell. (On the xz-plane.)
 	float ch;					///< The height of each cell. (The minimum increment along the y-axis.)
 	int width;					///< The width of the heightfield. (Along the x-axis in cell units.)
@@ -437,8 +438,8 @@ struct rcContourSet
 	
 	rcContour* conts;	///< An array of the contours in the set. [Size: #nconts]
 	int nconts;			///< The number of contours in the set.
-	float bmin[3];  	///< The minimum bounds in world space. [(x, y, z)]
-	float bmax[3];		///< The maximum bounds in world space. [(x, y, z)]
+	Vec3 bmin;  		///< The minimum bounds in world space. [(x, y, z)]
+	Vec3 bmax;			///< The maximum bounds in world space. [(x, y, z)]
 	float cs;			///< The size of each cell. (On the xz-plane.)
 	float ch;			///< The height of each cell. (The minimum increment along the y-axis.)
 	int width;			///< The width of the set. (Along the x-axis in cell units.) 
@@ -468,8 +469,8 @@ struct rcPolyMesh
 	int npolys;				///< The number of polygons.
 	int maxpolys;			///< The number of allocated polygons.
 	int nvp;				///< The maximum number of vertices per polygon.
-	float bmin[3];			///< The minimum bounds in world space. [(x, y, z)]
-	float bmax[3];			///< The maximum bounds in world space. [(x, y, z)]
+	Vec3 bmin;				///< The minimum bounds in world space. [(x, y, z)]
+	Vec3 bmax;				///< The maximum bounds in world space. [(x, y, z)]
 	float cs;				///< The size of each cell. (On the xz-plane.)
 	float ch;				///< The height of each cell. (The minimum increment along the y-axis.)
 	int borderSize;			///< The AABB border size used to generate the source data from which the mesh was derived.
@@ -488,9 +489,9 @@ struct rcPolyMeshDetail
 {
 	rcPolyMeshDetail();
 	
-	uint32_t* meshes;	///< The sub-mesh data. [Size: 4*#nmeshes] 
-	float* verts;			///< The mesh vertices. [Size: 3*#nverts] 
-	uint8_t* tris;	///< The mesh triangles. [Size: 4*#ntris] 
+	uint32_t* meshes;	///< The sub-mesh data. [Size: 4*#nmeshes]
+	Vec3* verts;		///< The mesh vertices. [Size: #nverts]
+	uint8_t* tris;		///< The mesh triangles. [Size: 4*#ntris]
 	int nmeshes;			///< The number of sub-meshes defined by #meshes.
 	int nverts;				///< The number of vertices in #verts.
 	int ntris;				///< The number of triangles in #tris.
@@ -690,128 +691,6 @@ template<class T> inline T rcClamp(T value, T minInclusive, T maxInclusive)
 float rcSqrt(float x);
 
 /// @}
-/// @name Vector helper functions.
-/// @{
-
-/// Derives the cross product of two vectors. (@p v1 x @p v2)
-/// @param[out]		dest	The cross product. [(x, y, z)]
-/// @param[in]		v1		A Vector [(x, y, z)]
-/// @param[in]		v2		A vector [(x, y, z)]
-inline void rcVcross(float* dest, const float* v1, const float* v2)
-{
-	dest[0] = v1[1]*v2[2] - v1[2]*v2[1];
-	dest[1] = v1[2]*v2[0] - v1[0]*v2[2];
-	dest[2] = v1[0]*v2[1] - v1[1]*v2[0];
-}
-
-/// Derives the dot product of two vectors. (@p v1 . @p v2)
-/// @param[in]		v1	A Vector [(x, y, z)]
-/// @param[in]		v2	A vector [(x, y, z)]
-/// @return The dot product.
-inline float rcVdot(const float* v1, const float* v2)
-{
-	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
-}
-
-/// Performs a scaled vector addition. (@p v1 + (@p v2 * @p s))
-/// @param[out]		dest	The result vector. [(x, y, z)]
-/// @param[in]		v1		The base vector. [(x, y, z)]
-/// @param[in]		v2		The vector to scale and add to @p v1. [(x, y, z)]
-/// @param[in]		s		The amount to scale @p v2 by before adding to @p v1.
-inline void rcVmad(float* dest, const float* v1, const float* v2, const float s)
-{
-	dest[0] = v1[0]+v2[0]*s;
-	dest[1] = v1[1]+v2[1]*s;
-	dest[2] = v1[2]+v2[2]*s;
-}
-
-/// Performs a vector addition. (@p v1 + @p v2)
-/// @param[out]		dest	The result vector. [(x, y, z)]
-/// @param[in]		v1		The base vector. [(x, y, z)]
-/// @param[in]		v2		The vector to add to @p v1. [(x, y, z)]
-inline void rcVadd(float* dest, const float* v1, const float* v2)
-{
-	dest[0] = v1[0]+v2[0];
-	dest[1] = v1[1]+v2[1];
-	dest[2] = v1[2]+v2[2];
-}
-
-/// Performs a vector subtraction. (@p v1 - @p v2)
-/// @param[out]		dest	The result vector. [(x, y, z)]
-/// @param[in]		v1		The base vector. [(x, y, z)]
-/// @param[in]		v2		The vector to subtract from @p v1. [(x, y, z)]
-inline void rcVsub(float* dest, const float* v1, const float* v2)
-{
-	dest[0] = v1[0]-v2[0];
-	dest[1] = v1[1]-v2[1];
-	dest[2] = v1[2]-v2[2];
-}
-
-/// Selects the minimum value of each element from the specified vectors.
-/// @param[in,out]	mn	A vector.  (Will be updated with the result.) [(x, y, z)]
-/// @param[in]		v	A vector. [(x, y, z)]
-inline void rcVmin(float* mn, const float* v)
-{
-	mn[0] = rcMin(mn[0], v[0]);
-	mn[1] = rcMin(mn[1], v[1]);
-	mn[2] = rcMin(mn[2], v[2]);
-}
-
-/// Selects the maximum value of each element from the specified vectors.
-/// @param[in,out]	mx	A vector.  (Will be updated with the result.) [(x, y, z)]
-/// @param[in]		v	A vector. [(x, y, z)]
-inline void rcVmax(float* mx, const float* v)
-{
-	mx[0] = rcMax(mx[0], v[0]);
-	mx[1] = rcMax(mx[1], v[1]);
-	mx[2] = rcMax(mx[2], v[2]);
-}
-
-/// Performs a vector copy.
-/// @param[out]		dest	The result. [(x, y, z)]
-/// @param[in]		v		The vector to copy. [(x, y, z)]
-inline void rcVcopy(float* dest, const float* v)
-{
-	dest[0] = v[0];
-	dest[1] = v[1];
-	dest[2] = v[2];
-}
-
-/// Returns the distance between two points.
-/// @param[in]		v1	A point. [(x, y, z)]
-/// @param[in]		v2	A point. [(x, y, z)]
-/// @return The distance between the two points.
-inline float rcVdist(const float* v1, const float* v2)
-{
-	float dx = v2[0] - v1[0];
-	float dy = v2[1] - v1[1];
-	float dz = v2[2] - v1[2];
-	return rcSqrt(dx*dx + dy*dy + dz*dz);
-}
-
-/// Returns the square of the distance between two points.
-/// @param[in]		v1	A point. [(x, y, z)]
-/// @param[in]		v2	A point. [(x, y, z)]
-/// @return The square of the distance between the two points.
-inline float rcVdistSqr(const float* v1, const float* v2)
-{
-	float dx = v2[0] - v1[0];
-	float dy = v2[1] - v1[1];
-	float dz = v2[2] - v1[2];
-	return dx*dx + dy*dy + dz*dz;
-}
-
-/// Normalizes the vector.
-/// @param[in,out]	v	The vector to normalize. [(x, y, z)]
-inline void rcVnormalize(float* v)
-{
-	float d = 1.0f / rcSqrt(rcSqr(v[0]) + rcSqr(v[1]) + rcSqr(v[2]));
-	v[0] *= d;
-	v[1] *= d;
-	v[2] *= d;
-}
-
-/// @}
 /// @name Heightfield Functions
 /// @see rcHeightfield
 /// @{
@@ -822,7 +701,7 @@ inline void rcVnormalize(float* v)
 /// @param[in]		numVerts	The number of vertices in the @p verts array.
 /// @param[out]		minBounds	The minimum bounds of the AABB. [(x, y, z)] [Units: wu]
 /// @param[out]		maxBounds	The maximum bounds of the AABB. [(x, y, z)] [Units: wu]
-void rcCalcBounds(const float* verts, int numVerts, float* minBounds, float* maxBounds);
+void rcCalcBounds(const Vec3* verts, int numVerts, Vec3& minBounds, Vec3& maxBounds);
 
 /// Calculates the grid size based on the bounding box and grid cell size.
 /// @ingroup recast
@@ -831,7 +710,7 @@ void rcCalcBounds(const float* verts, int numVerts, float* minBounds, float* max
 /// @param[in]		cellSize	The xz-plane cell size. [Limit: > 0] [Units: wu]
 /// @param[out]		sizeX		The width along the x-axis. [Limit: >= 0] [Units: vx]
 /// @param[out]		sizeZ		The height along the z-axis. [Limit: >= 0] [Units: vx]
-void rcCalcGridSize(const float* minBounds, const float* maxBounds, float cellSize, int* sizeX, int* sizeZ);
+void rcCalcGridSize(const Vec3& minBounds, const Vec3& maxBounds, float cellSize, int* sizeX, int* sizeZ);
 
 /// Initializes a new heightfield.
 /// See the #rcConfig documentation for more information on the configuration parameters.
@@ -849,7 +728,7 @@ void rcCalcGridSize(const float* minBounds, const float* maxBounds, float cellSi
 /// @param[in]		cellHeight	The y-axis cell size to use for field. [Limit: > 0] [Units: wu]
 /// @returns True if the operation completed successfully.
 bool rcCreateHeightfield(rcContext* context, rcHeightfield& heightfield, int sizeX, int sizeZ,
-						 const float* minBounds, const float* maxBounds,
+						 const Vec3& minBounds, const Vec3& maxBounds,
 						 float cellSize, float cellHeight);
 
 /// Sets the area id of all triangles with a slope below the specified value
@@ -871,8 +750,8 @@ bool rcCreateHeightfield(rcContext* context, rcHeightfield& heightfield, int siz
 /// @param[in]		tris				The triangle vertex indices. [(vertA, vertB, vertC) * @p nt]
 /// @param[in]		numTris				The number of triangles.
 /// @param[out]		triAreaIDs			The triangle area ids. [Length: >= @p nt]
-void rcMarkWalkableTriangles(rcContext* context, float walkableSlopeAngle, const float* verts, int numVerts,
-							 const int* tris, int numTris, uint8_t* triAreaIDs); 
+void rcMarkWalkableTriangles(rcContext* context, float walkableSlopeAngle, const Vec3* verts, int numVerts,
+							 const int* tris, int numTris, uint8_t* triAreaIDs);
 
 /// Sets the area id of all triangles with a slope greater than or equal to the specified value to #RC_NULL_AREA.
 /// 
@@ -892,8 +771,8 @@ void rcMarkWalkableTriangles(rcContext* context, float walkableSlopeAngle, const
 /// @param[in]		tris				The triangle vertex indices. [(vertA, vertB, vertC) * @p nt]
 /// @param[in]		numTris				The number of triangles.
 /// @param[out]		triAreaIDs			The triangle area ids. [Length: >= @p nt]
-void rcClearUnwalkableTriangles(rcContext* context, float walkableSlopeAngle, const float* verts, int numVerts,
-								const int* tris, int numTris, uint8_t* triAreaIDs); 
+void rcClearUnwalkableTriangles(rcContext* context, float walkableSlopeAngle, const Vec3* verts, int numVerts,
+								const int* tris, int numTris, uint8_t* triAreaIDs);
 
 /// Adds a span to the specified heightfield.
 /// 
@@ -936,7 +815,7 @@ bool rcAddSpan(rcContext* context, rcHeightfield& heightfield,
 /// 									[Limit: >= 0] [Units: vx]
 /// @returns True if the operation completed successfully.
 bool rcRasterizeTriangle(rcContext* context,
-                         const float* v0, const float* v1, const float* v2,
+                         const Vec3& v0, const Vec3& v1, const Vec3& v2,
                          uint8_t areaID, rcHeightfield& heightfield, int flagMergeThreshold = 1);
 
 /// Rasterizes an indexed triangle mesh into the specified heightfield.
@@ -956,7 +835,7 @@ bool rcRasterizeTriangle(rcContext* context,
 ///										[Limit: >= 0] [Units: vx]
 /// @returns True if the operation completed successfully.
 bool rcRasterizeTriangles(rcContext* context,
-                          const float* verts, int numVerts,
+                          const Vec3* verts, int numVerts,
                           const int* tris, const uint8_t* triAreaIDs, int numTris,
                           rcHeightfield& heightfield, int flagMergeThreshold = 1);
 
@@ -977,7 +856,7 @@ bool rcRasterizeTriangles(rcContext* context,
 /// 									[Limit: >= 0] [Units: vx]
 /// @returns True if the operation completed successfully.
 bool rcRasterizeTriangles(rcContext* context,
-                          const float* verts, int numVerts,
+                          const Vec3* verts, int numVerts,
                           const uint16_t* tris, const uint8_t* triAreaIDs, int numTris,
                           rcHeightfield& heightfield, int flagMergeThreshold = 1);
 
@@ -998,7 +877,7 @@ bool rcRasterizeTriangles(rcContext* context,
 /// 									[Limit: >= 0] [Units: vx]
 /// @returns True if the operation completed successfully.
 bool rcRasterizeTriangles(rcContext* context,
-                          const float* verts, const uint8_t* triAreaIDs, int numTris,
+                          const Vec3* verts, const uint8_t* triAreaIDs, int numTris,
                           rcHeightfield& heightfield, int flagMergeThreshold = 1);
 
 /// Marks non-walkable spans as walkable if their maximum is within @p walkableClimb of the span below them.
@@ -1128,7 +1007,7 @@ bool rcMedianFilterWalkableArea(rcContext* context, rcCompactHeightfield& compac
 /// @param[in]		boxMaxBounds		The maximum extents of the bounding box. [(x, y, z)] [Units: wu]
 /// @param[in]		areaId				The area id to apply. [Limit: <= #RC_WALKABLE_AREA]
 /// @param[in,out]	compactHeightfield	A populated compact heightfield.
-void rcMarkBoxArea(rcContext* context, const float* boxMinBounds, const float* boxMaxBounds, uint8_t areaId,
+void rcMarkBoxArea(rcContext* context, const Vec3& boxMinBounds, const Vec3& boxMaxBounds, uint8_t areaId,
 				   rcCompactHeightfield& compactHeightfield);
 
 /// Applies the area id to the all spans within the specified convex polygon. 
@@ -1148,7 +1027,7 @@ void rcMarkBoxArea(rcContext* context, const float* boxMinBounds, const float* b
 /// @param[in]		maxY				The height of the top of the polygon. [Units: wu]
 /// @param[in]		areaId				The area id to apply. [Limit: <= #RC_WALKABLE_AREA]
 /// @param[in,out]	compactHeightfield	A populated compact heightfield.
-void rcMarkConvexPolyArea(rcContext* context, const float* verts, int numVerts,
+void rcMarkConvexPolyArea(rcContext* context, const Vec3* verts, int numVerts,
 						  float minY, float maxY, uint8_t areaId,
 						  rcCompactHeightfield& compactHeightfield);
 
@@ -1165,7 +1044,7 @@ void rcMarkConvexPolyArea(rcContext* context, const float* verts, int numVerts,
 /// @param[out]		outVerts	The offset vertices (should hold up to 2 * @p numVerts) [Form: (x, y, z) * return value]
 /// @param[in]		maxOutVerts	The max number of vertices that can be stored to @p outVerts.
 /// @returns Number of vertices in the offset polygon or 0 if too few vertices in @p outVerts.
-int rcOffsetPoly(const float* verts, int numVerts, float offset, float* outVerts, int maxOutVerts);
+int rcOffsetPoly(const Vec3* verts, int numVerts, float offset, Vec3* outVerts, int maxOutVerts);
 
 /// Applies the area id to all spans within the specified y-axis-aligned cylinder.
 /// 
@@ -1179,7 +1058,7 @@ int rcOffsetPoly(const float* verts, int numVerts, float offset, float* outVerts
 /// @param[in]		height				The height of the cylinder. [Units: wu] [Limit: > 0]
 /// @param[in]		areaId				The area id to apply. [Limit: <= #RC_WALKABLE_AREA]
 /// @param[in,out]	compactHeightfield	A populated compact heightfield.
-void rcMarkCylinderArea(rcContext* context, const float* position, float radius, float height,
+void rcMarkCylinderArea(rcContext* context, const Vec3& position, float radius, float height,
 						uint8_t areaId, rcCompactHeightfield& compactHeightfield);
 
 /// Builds the distance field for the specified compact heightfield. 

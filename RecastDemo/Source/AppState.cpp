@@ -1,5 +1,6 @@
 #include "AppState.h"
 #include "InputGeom.h"
+#include "Vec3.h"
 #include "SDL_opengl.h"
 #include "Sample.h"
 
@@ -16,8 +17,8 @@ void AppState::resetCamera()
 	// Reset camera and fog to match the mesh bounds.
 	if (inputGeometry)
 	{
-		const float* boundsMin = inputGeometry->getNavMeshBoundsMin();
-		const float* boundsMax = inputGeometry->getNavMeshBoundsMax();
+		const Vec3& boundsMin = inputGeometry->getNavMeshBoundsMin();
+		const Vec3& boundsMax = inputGeometry->getNavMeshBoundsMax();
 
 		camr = rcSqr(boundsMax[0] - boundsMin[0]);
 		camr += rcSqr(boundsMax[1] - boundsMin[1]);

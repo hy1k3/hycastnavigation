@@ -54,14 +54,15 @@ workspace "recastnavigation"
 local function libproject(name, dependencies)
 	project(name)
 		language "C++"
-		cppdialect "C++98"
+		cppdialect "C++11"
 		kind "StaticLib"
 
 		warnings "Extra"
 		fatalwarnings { "All" }
 
 		local includes = {
-			"../" .. name .. "/Include"
+			"../" .. name .. "/Include",
+			"../Math/Include"
 		}
 		for _,dependency in ipairs(dependencies) do
 			table.insert(includes, "../" .. dependency .. "/Include")
@@ -76,7 +77,8 @@ end
 
 libproject("Recast", {})
 libproject("Detour", {})
-libproject("DebugUtils", {"Detour", "Recast"})
+libproject("DetourTileCache", {"Detour"})
+libproject("DebugUtils", {"Detour", "DetourTileCache", "Recast"})
 
 project "Contrib"
 	language "C++"
@@ -118,7 +120,9 @@ project "RecastDemo"
 		"../RecastDemo/Include",
 		"../DebugUtils/Include",
 		"../Detour/Include",
-		"../Recast/Include"
+		"../DetourTileCache/Include",
+		"../Recast/Include",
+		"../Math/Include"
 	}
 	externalincludedirs {
 		"../RecastDemo/Contrib/fastlz",
@@ -134,6 +138,7 @@ project "RecastDemo"
 
 	links {
 		"DebugUtils",
+		"DetourTileCache",
 		"Detour",
 		"Recast",
 		"Contrib"
@@ -195,11 +200,13 @@ project "Tests"
 	includedirs {
 		"../DebugUtils/Include",
 		"../Detour/Include",
+		"../DetourTileCache/Include",
 		"../Recast/Include",
 		"../Recast/Source",
 		"../Tests/Recast",
 		"../Tests",
-		"../Tests/Contrib"
+		"../Tests/Contrib",
+		"../Math/Include"
 	}
 	files {
 		"../Tests/**.h",
@@ -209,6 +216,7 @@ project "Tests"
 
 	links {
 		"DebugUtils",
+		"DetourTileCache",
 		"Detour",
 		"Recast",
 	}

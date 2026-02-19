@@ -5,6 +5,7 @@
 #include "catch2/catch_amalgamated.hpp"
 
 #include "Recast.h"
+#include "Vec3.h"
 
 TEST_CASE("rcSwap", "[recast]")
 {
@@ -97,23 +98,23 @@ TEST_CASE("rcVcross", "[recast]")
 {
 	SECTION("Computes cross product")
 	{
-		float v1[3] = {3, -3, 1};
-		float v2[3] = {4, 9, 2};
-		float result[3];
-		rcVcross(result, v1, v2);
-		REQUIRE(result[0] == Catch::Approx(-15));
-		REQUIRE(result[1] == Catch::Approx(-2));
-		REQUIRE(result[2] == Catch::Approx(39));
+		Vec3 v1(3, -3, 1);
+		Vec3 v2(4, 9, 2);
+		Vec3 result;
+		result = v1.cross(v2);
+		REQUIRE(result.x == Catch::Approx(-15));
+		REQUIRE(result.y == Catch::Approx(-2));
+		REQUIRE(result.z == Catch::Approx(39));
 	}
 
 	SECTION("Cross product with itself is zero")
 	{
-		float v1[3] = {3, -3, 1};
-		float result[3];
-		rcVcross(result, v1, v1);
-		REQUIRE(result[0] == Catch::Approx(0));
-		REQUIRE(result[1] == Catch::Approx(0));
-		REQUIRE(result[2] == Catch::Approx(0));
+		Vec3 v1(3, -3, 1);
+		Vec3 result;
+		result = v1.cross(v1);
+		REQUIRE(result.x == Catch::Approx(0));
+		REQUIRE(result.y == Catch::Approx(0));
+		REQUIRE(result.z == Catch::Approx(0));
 	}
 }
 
@@ -121,17 +122,17 @@ TEST_CASE("rcVdot", "[recast]")
 {
 	SECTION("Dot normalized vector with itself")
 	{
-		float v1[] = { 1, 0, 0 };
-		float result = rcVdot(v1, v1);
+		Vec3 v1( 1, 0, 0 );
+		float result = v1.dot(v1);
 		REQUIRE(result == Catch::Approx(1));
 	}
 
 	SECTION("Dot zero vector with anything is zero")
 	{
-		float v1[] = { 1, 2, 3 };
-		float v2[] = { 0, 0, 0 };
+		Vec3 v1( 1, 2, 3 );
+		Vec3 v2( 0, 0, 0 );
 
-		float result = rcVdot(v1, v2);
+		float result = v1.dot(v2);
 		REQUIRE(result == Catch::Approx(0));
 	}
 }
@@ -140,24 +141,24 @@ TEST_CASE("rcVmad", "[recast]")
 {
 	SECTION("scaled add two vectors")
 	{
-		float v1[3] = {1, 2, 3};
-		float v2[3] = {0, 2, 4};
-		float result[3];
-		rcVmad(result, v1, v2, 2);
-		REQUIRE(result[0] == Catch::Approx(1));
-		REQUIRE(result[1] == Catch::Approx(6));
-		REQUIRE(result[2] == Catch::Approx(11));
+		Vec3 v1(1, 2, 3);
+		Vec3 v2(0, 2, 4);
+		Vec3 result;
+		result = v1 + v2 * 2;
+		REQUIRE(result.x == Catch::Approx(1));
+		REQUIRE(result.y == Catch::Approx(6));
+		REQUIRE(result.z == Catch::Approx(11));
 	}
 
 	SECTION("second vector is scaled, first is not")
 	{
-		float v1[3] = {1, 2, 3};
-		float v2[3] = {5, 6, 7};
-		float result[3];
-		rcVmad(result, v1, v2, 0);
-		REQUIRE(result[0] == Catch::Approx(1));
-		REQUIRE(result[1] == Catch::Approx(2));
-		REQUIRE(result[2] == Catch::Approx(3));
+		Vec3 v1(1, 2, 3);
+		Vec3 v2(5, 6, 7);
+		Vec3 result;
+		result = v1 + v2 * 0;
+		REQUIRE(result.x == Catch::Approx(1));
+		REQUIRE(result.y == Catch::Approx(2));
+		REQUIRE(result.z == Catch::Approx(3));
 	}
 }
 
@@ -165,13 +166,13 @@ TEST_CASE("rcVadd", "[recast]")
 {
 	SECTION("add two vectors")
 	{
-		float v1[3] = {1, 2, 3};
-		float v2[3] = {5, 6, 7};
-		float result[3];
-		rcVadd(result, v1, v2);
-		REQUIRE(result[0] == Catch::Approx(6));
-		REQUIRE(result[1] == Catch::Approx(8));
-		REQUIRE(result[2] == Catch::Approx(10));
+		Vec3 v1(1, 2, 3);
+		Vec3 v2(5, 6, 7);
+		Vec3 result;
+		result = v1 + v2;
+		REQUIRE(result.x == Catch::Approx(6));
+		REQUIRE(result.y == Catch::Approx(8));
+		REQUIRE(result.z == Catch::Approx(10));
 	}
 }
 
@@ -179,13 +180,13 @@ TEST_CASE("rcVsub", "[recast]")
 {
 	SECTION("subtract two vectors")
 	{
-		float v1[3] = {5, 4, 3};
-		float v2[3] = {1, 2, 3};
-		float result[3];
-		rcVsub(result, v1, v2);
-		REQUIRE(result[0] == Catch::Approx(4));
-		REQUIRE(result[1] == Catch::Approx(2));
-		REQUIRE(result[2] == Catch::Approx(0));
+		Vec3 v1(5, 4, 3);
+		Vec3 v2(1, 2, 3);
+		Vec3 result;
+		result = v1 - v2;
+		REQUIRE(result.x == Catch::Approx(4));
+		REQUIRE(result.y == Catch::Approx(2));
+		REQUIRE(result.z == Catch::Approx(0));
 	}
 }
 
@@ -193,32 +194,32 @@ TEST_CASE("rcVmin", "[recast]")
 {
 	SECTION("selects the min component from the vectors")
 	{
-		float v1[3] = {5, 4, 0};
-		float v2[3] = {1, 2, 9};
-		rcVmin(v1, v2);
-		REQUIRE(v1[0] == Catch::Approx(1));
-		REQUIRE(v1[1] == Catch::Approx(2));
-		REQUIRE(v1[2] == Catch::Approx(0));
+		Vec3 v1(5, 4, 0);
+		Vec3 v2(1, 2, 9);
+		v1 = vmin(v1, v2);
+		REQUIRE(v1.x == Catch::Approx(1));
+		REQUIRE(v1.y == Catch::Approx(2));
+		REQUIRE(v1.z == Catch::Approx(0));
 	}
 
 	SECTION("v1 is min")
 	{
-		float v1[3] = {1, 2, 3};
-		float v2[3] = {4, 5, 6};
-		rcVmin(v1, v2);
-		REQUIRE(v1[0] == Catch::Approx(1));
-		REQUIRE(v1[1] == Catch::Approx(2));
-		REQUIRE(v1[2] == Catch::Approx(3));
+		Vec3 v1(1, 2, 3);
+		Vec3 v2(4, 5, 6);
+		v1 = vmin(v1, v2);
+		REQUIRE(v1.x == Catch::Approx(1));
+		REQUIRE(v1.y == Catch::Approx(2));
+		REQUIRE(v1.z == Catch::Approx(3));
 	}
 
 	SECTION("v2 is min")
 	{
-		float v1[3] = {4, 5, 6};
-		float v2[3] = {1, 2, 3};
-		rcVmin(v1, v2);
-		REQUIRE(v1[0] == Catch::Approx(1));
-		REQUIRE(v1[1] == Catch::Approx(2));
-		REQUIRE(v1[2] == Catch::Approx(3));
+		Vec3 v1(4, 5, 6);
+		Vec3 v2(1, 2, 3);
+		v1 = vmin(v1, v2);
+		REQUIRE(v1.x == Catch::Approx(1));
+		REQUIRE(v1.y == Catch::Approx(2));
+		REQUIRE(v1.z == Catch::Approx(3));
 	}
 }
 
@@ -226,32 +227,32 @@ TEST_CASE("rcVmax", "[recast]")
 {
 	SECTION("selects the max component from the vectors")
 	{
-		float v1[3] = {5, 4, 0};
-		float v2[3] = {1, 2, 9};
-		rcVmax(v1, v2);
-		REQUIRE(v1[0] == Catch::Approx(5));
-		REQUIRE(v1[1] == Catch::Approx(4));
-		REQUIRE(v1[2] == Catch::Approx(9));
+		Vec3 v1(5, 4, 0);
+		Vec3 v2(1, 2, 9);
+		v1 = vmax(v1, v2);
+		REQUIRE(v1.x == Catch::Approx(5));
+		REQUIRE(v1.y == Catch::Approx(4));
+		REQUIRE(v1.z == Catch::Approx(9));
 	}
 
 	SECTION("v2 is max")
 	{
-		float v1[3] = {1, 2, 3};
-		float v2[3] = {4, 5, 6};
-		rcVmax(v1, v2);
-		REQUIRE(v1[0] == Catch::Approx(4));
-		REQUIRE(v1[1] == Catch::Approx(5));
-		REQUIRE(v1[2] == Catch::Approx(6));
+		Vec3 v1(1, 2, 3);
+		Vec3 v2(4, 5, 6);
+		v1 = vmax(v1, v2);
+		REQUIRE(v1.x == Catch::Approx(4));
+		REQUIRE(v1.y == Catch::Approx(5));
+		REQUIRE(v1.z == Catch::Approx(6));
 	}
 
 	SECTION("v1 is max")
 	{
-		float v1[3] = {4, 5, 6};
-		float v2[3] = {1, 2, 3};
-		rcVmax(v1, v2);
-		REQUIRE(v1[0] == Catch::Approx(4));
-		REQUIRE(v1[1] == Catch::Approx(5));
-		REQUIRE(v1[2] == Catch::Approx(6));
+		Vec3 v1(4, 5, 6);
+		Vec3 v2(1, 2, 3);
+		v1 = vmax(v1, v2);
+		REQUIRE(v1.x == Catch::Approx(4));
+		REQUIRE(v1.y == Catch::Approx(5));
+		REQUIRE(v1.z == Catch::Approx(6));
 	}
 }
 
@@ -259,15 +260,15 @@ TEST_CASE("rcVcopy", "[recast]")
 {
 	SECTION("copies a vector into another vector")
 	{
-		float v1[3] = {5, 4, 0};
-		float result[3] = {1, 2, 9};
-		rcVcopy(result, v1);
-		REQUIRE(result[0] == Catch::Approx(5));
-		REQUIRE(result[1] == Catch::Approx(4));
-		REQUIRE(result[2] == Catch::Approx(0));
-		REQUIRE(v1[0] == Catch::Approx(5));
-		REQUIRE(v1[1] == Catch::Approx(4));
-		REQUIRE(v1[2] == Catch::Approx(0));
+		Vec3 v1(5, 4, 0);
+		Vec3 result(1, 2, 9);
+		result = v1;
+		REQUIRE(result.x == Catch::Approx(5));
+		REQUIRE(result.y == Catch::Approx(4));
+		REQUIRE(result.z == Catch::Approx(0));
+		REQUIRE(v1.x == Catch::Approx(5));
+		REQUIRE(v1.y == Catch::Approx(4));
+		REQUIRE(v1.z == Catch::Approx(0));
 	}
 }
 
@@ -275,19 +276,19 @@ TEST_CASE("rcVdist", "[recast]")
 {
 	SECTION("distance between two vectors")
 	{
-		float v1[3] = {3, 1, 3};
-		float v2[3] = {1, 3, 1};
-		float result = rcVdist(v1, v2);
+		Vec3 v1(3, 1, 3);
+		Vec3 v2(1, 3, 1);
+		float result = dist(v1, v2);
 
 		REQUIRE(result == Catch::Approx(3.4641f));
 	}
 
 	SECTION("Distance from zero is magnitude")
 	{
-		float v1[3] = {3, 1, 3};
-		float v2[3] = {0, 0, 0};
-		float distance = rcVdist(v1, v2);
-		float magnitude = rcSqrt(rcSqr(v1[0]) + rcSqr(v1[1]) + rcSqr(v1[2]));
+		Vec3 v1(3, 1, 3);
+		Vec3 v2(0, 0, 0);
+		float distance = dist(v1, v2);
+		float magnitude = rcSqrt(rcSqr(v1.x) + rcSqr(v1.y) + rcSqr(v1.z));
 		REQUIRE(distance == Catch::Approx(magnitude));
 	}
 }
@@ -296,19 +297,19 @@ TEST_CASE("rcVdistSqr", "[recast]")
 {
 	SECTION("squared distance between two vectors")
 	{
-		float v1[3] = {3, 1, 3};
-		float v2[3] = {1, 3, 1};
-		float result = rcVdistSqr(v1, v2);
+		Vec3 v1(3, 1, 3);
+		Vec3 v2(1, 3, 1);
+		float result = distSqr(v1, v2);
 
 		REQUIRE(result == Catch::Approx(12));
 	}
 
 	SECTION("squared distance from zero is squared magnitude")
 	{
-		float v1[3] = {3, 1, 3};
-		float v2[3] = {0, 0, 0};
-		float distance = rcVdistSqr(v1, v2);
-		float magnitude = rcSqr(v1[0]) + rcSqr(v1[1]) + rcSqr(v1[2]);
+		Vec3 v1(3, 1, 3);
+		Vec3 v2(0, 0, 0);
+		float distance = distSqr(v1, v2);
+		float magnitude = rcSqr(v1.x) + rcSqr(v1.y) + rcSqr(v1.z);
 		REQUIRE(distance == Catch::Approx(magnitude));
 	}
 }
@@ -317,12 +318,12 @@ TEST_CASE("rcVnormalize", "[recast]")
 {
 	SECTION("normalizing reduces magnitude to 1")
 	{
-		float v[3] = {3, 3, 3};
-		rcVnormalize(v);
-		REQUIRE(v[0] == Catch::Approx(rcSqrt(1.0f / 3.0f)));
-		REQUIRE(v[1] == Catch::Approx(rcSqrt(1.0f / 3.0f)));
-		REQUIRE(v[2] == Catch::Approx(rcSqrt(1.0f / 3.0f)));
-		float magnitude = rcSqrt(rcSqr(v[0]) + rcSqr(v[1]) + rcSqr(v[2]));
+		Vec3 v(3, 3, 3);
+		v.normalize();
+		REQUIRE(v.x == Catch::Approx(rcSqrt(1.0f / 3.0f)));
+		REQUIRE(v.y == Catch::Approx(rcSqrt(1.0f / 3.0f)));
+		REQUIRE(v.z == Catch::Approx(rcSqrt(1.0f / 3.0f)));
+		float magnitude = rcSqrt(rcSqr(v.x) + rcSqr(v.y) + rcSqr(v.z));
 		REQUIRE(magnitude == Catch::Approx(1));
 	}
 }
@@ -331,37 +332,37 @@ TEST_CASE("rcCalcBounds", "[recast]")
 {
 	SECTION("bounds of one vector")
 	{
-		float verts[] = {1, 2, 3};
-		float bmin[3];
-		float bmax[3];
+		Vec3 verts[] = { Vec3(1, 2, 3) };
+		Vec3 bmin;
+		Vec3 bmax;
 		rcCalcBounds(verts, 1, bmin, bmax);
 
-		REQUIRE(bmin[0] == Catch::Approx(verts[0]));
-		REQUIRE(bmin[1] == Catch::Approx(verts[1]));
-		REQUIRE(bmin[2] == Catch::Approx(verts[2]));
+		REQUIRE(bmin.x == Catch::Approx(verts[0].x));
+		REQUIRE(bmin.y == Catch::Approx(verts[0].y));
+		REQUIRE(bmin.z == Catch::Approx(verts[0].z));
 
-		REQUIRE(bmax[0] == Catch::Approx(verts[0]));
-		REQUIRE(bmax[1] == Catch::Approx(verts[1]));
-		REQUIRE(bmax[2] == Catch::Approx(verts[2]));
+		REQUIRE(bmax.x == Catch::Approx(verts[0].x));
+		REQUIRE(bmax.y == Catch::Approx(verts[0].y));
+		REQUIRE(bmax.z == Catch::Approx(verts[0].z));
 	}
 
 	SECTION("bounds of more than one vector")
 	{
-		float verts[] = {
-			1, 2, 3,
-			0, 2, 5
+		Vec3 verts[] = {
+			Vec3(1, 2, 3),
+			Vec3(0, 2, 5)
 		};
-		float bmin[3];
-		float bmax[3];
+		Vec3 bmin;
+		Vec3 bmax;
 		rcCalcBounds(verts, 2, bmin, bmax);
 
-		REQUIRE(bmin[0] == Catch::Approx(0));
-		REQUIRE(bmin[1] == Catch::Approx(2));
-		REQUIRE(bmin[2] == Catch::Approx(3));
+		REQUIRE(bmin.x == Catch::Approx(0));
+		REQUIRE(bmin.y == Catch::Approx(2));
+		REQUIRE(bmin.z == Catch::Approx(3));
 
-		REQUIRE(bmax[0] == Catch::Approx(1));
-		REQUIRE(bmax[1] == Catch::Approx(2));
-		REQUIRE(bmax[2] == Catch::Approx(5));
+		REQUIRE(bmax.x == Catch::Approx(1));
+		REQUIRE(bmax.y == Catch::Approx(2));
+		REQUIRE(bmax.z == Catch::Approx(5));
 	}
 }
 
@@ -369,12 +370,12 @@ TEST_CASE("rcCalcGridSize", "[recast]")
 {
 	SECTION("computes the size of an x & z axis grid")
 	{
-		float verts[] = {
-			1, 2, 3,
-			0, 2, 6
+		Vec3 verts[] = {
+			Vec3(1, 2, 3),
+			Vec3(0, 2, 6)
 		};
-		float bmin[3];
-		float bmax[3];
+		Vec3 bmin;
+		Vec3 bmax;
 		rcCalcBounds(verts, 2, bmin, bmax);
 
 		float cellSize = 1.5f;
@@ -393,12 +394,12 @@ TEST_CASE("rcCreateHeightfield", "[recast]")
 {
 	SECTION("create a heightfield")
 	{
-		float verts[] = {
-			1, 2, 3,
-			0, 2, 6
+		Vec3 verts[] = {
+			Vec3(1, 2, 3),
+			Vec3(0, 2, 6)
 		};
-		float bmin[3];
-		float bmax[3];
+		Vec3 bmin;
+		Vec3 bmax;
 		rcCalcBounds(verts, 2, bmin, bmax);
 
 		float cellSize = 1.5f;
@@ -418,13 +419,13 @@ TEST_CASE("rcCreateHeightfield", "[recast]")
 		REQUIRE(heightfield.width == width);
 		REQUIRE(heightfield.height == height);
 
-		REQUIRE(heightfield.bmin[0] == Catch::Approx(bmin[0]));
-		REQUIRE(heightfield.bmin[1] == Catch::Approx(bmin[1]));
-		REQUIRE(heightfield.bmin[2] == Catch::Approx(bmin[2]));
+		REQUIRE(heightfield.bmin.x == Catch::Approx(bmin.x));
+		REQUIRE(heightfield.bmin.y == Catch::Approx(bmin.y));
+		REQUIRE(heightfield.bmin.z == Catch::Approx(bmin.z));
 
-		REQUIRE(heightfield.bmax[0] == Catch::Approx(bmax[0]));
-		REQUIRE(heightfield.bmax[1] == Catch::Approx(bmax[1]));
-		REQUIRE(heightfield.bmax[2] == Catch::Approx(bmax[2]));
+		REQUIRE(heightfield.bmax.x == Catch::Approx(bmax.x));
+		REQUIRE(heightfield.bmax.y == Catch::Approx(bmax.y));
+		REQUIRE(heightfield.bmax.z == Catch::Approx(bmax.z));
 
 		REQUIRE(heightfield.cs == Catch::Approx(cellSize));
 		REQUIRE(heightfield.ch == Catch::Approx(cellHeight));
@@ -439,10 +440,10 @@ TEST_CASE("rcMarkWalkableTriangles", "[recast]")
 {
 	rcContext* ctx = 0;
 	float walkableSlopeAngle = 45;
-	float verts[] = {
-		0, 0, 0,
-		1, 0, 0,
-		0, 0, -1
+	Vec3 verts[] = {
+		Vec3(0, 0, 0),
+		Vec3(1, 0, 0),
+		Vec3(0, 0, -1)
 	};
 	int nv = 3;
 	int walkable_tri[] = { 0, 1, 2 };
@@ -481,10 +482,10 @@ TEST_CASE("rcClearUnwalkableTriangles", "[recast]")
 {
 	rcContext* ctx = 0;
 	float walkableSlopeAngle = 45;
-	float verts[] = {
-		0, 0, 0,
-		1, 0, 0,
-		0, 0, -1
+	Vec3 verts[] = {
+		Vec3(0, 0, 0),
+		Vec3(1, 0, 0),
+		Vec3(0, 0, -1)
 	};
 	int nv = 3;
 	int walkable_tri[] = { 0, 1, 2 };
@@ -515,11 +516,11 @@ TEST_CASE("rcClearUnwalkableTriangles", "[recast]")
 TEST_CASE("rcRasterizeTriangles", "[recast]")
 {
 	rcContext ctx;
-	float verts[] = {
-		0, 0, 0,
-		1, 0, 0,
-		0, 0, -1,
-		0, 0, 1
+	Vec3 verts[] = {
+		Vec3(0, 0, 0),
+		Vec3(1, 0, 0),
+		Vec3(0, 0, -1),
+		Vec3(0, 0, 1)
 	};
 	int tris[] = {
 		0, 1, 2,
@@ -529,8 +530,8 @@ TEST_CASE("rcRasterizeTriangles", "[recast]")
 		1,
 		2
 	};
-	float bmin[3];
-	float bmax[3];
+	Vec3 bmin;
+	Vec3 bmax;
 	rcCalcBounds(verts, 4, bmin, bmax);
 
 	float cellSize = .5f;
@@ -640,13 +641,13 @@ TEST_CASE("rcRasterizeTriangles", "[recast]")
 
 	SECTION("Triangle list overload")
 	{
-		float vertsList[] = {
-			0, 0, 0,
-			1, 0, 0,
-			0, 0, -1,
-			0, 0, 0,
-			0, 0, 1,
-			1, 0, 0,
+		Vec3 vertsList[] = {
+			Vec3(0, 0, 0),
+			Vec3(1, 0, 0),
+			Vec3(0, 0, -1),
+			Vec3(0, 0, 0),
+			Vec3(0, 0, 1),
+			Vec3(1, 0, 0),
 		};
 
 		REQUIRE(rcRasterizeTriangles(&ctx, vertsList, areas, 2, solid, flagMergeThr));

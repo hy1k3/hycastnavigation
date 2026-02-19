@@ -108,7 +108,7 @@ public:
 	void onClick(const float* /*s*/, const float* p, bool shift) override
 	{
 		hitPosSet = true;
-		rcVcopy(hitPos, p);
+		hitPos[0] = p[0]; hitPos[1] = p[1]; hitPos[2] = p[2];
 		if (sample)
 		{
 			if (shift)
@@ -211,8 +211,8 @@ void Sample_TileMesh::drawSettingsUI()
 
 	if (inputGeometry)
 	{
-		const float* navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
-		const float* navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
+		const Vec3& navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
+		const Vec3& navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
 		int gridWidth = 0;
 		int gridHeight = 0;
 		rcCalcGridSize(navMeshBoundsMin, navMeshBoundsMax, cellSize, &gridWidth, &gridHeight);
@@ -355,8 +355,8 @@ void Sample_TileMesh::render()
 	glDepthMask(GL_FALSE);
 
 	// Draw bounds
-	const float* navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
-	const float* navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
+	const Vec3& navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
+	const Vec3& navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
 	duDebugDrawBoxWire(
 		&debugDraw,
 		navMeshBoundsMin[0],
@@ -565,7 +565,7 @@ bool Sample_TileMesh::build()
 	}
 
 	dtNavMeshParams params;
-	rcVcopy(params.orig, inputGeometry->getNavMeshBoundsMin());
+	params.orig = inputGeometry->getNavMeshBoundsMin();
 	params.tileWidth = static_cast<float>(tileSize) * cellSize;
 	params.tileHeight = static_cast<float>(tileSize) * cellSize;
 	params.maxTiles = maxTiles;
@@ -617,8 +617,8 @@ void Sample_TileMesh::buildTile(const float* pos)
 		return;
 	}
 
-	const float* navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
-	const float* navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
+	const Vec3& navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
+	const Vec3& navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
 
 	const float tileWorldSize = static_cast<float>(tileSize) * cellSize;
 	const int tileX = static_cast<int>((pos[0] - navMeshBoundsMin[0]) / tileWorldSize);
@@ -663,7 +663,7 @@ void Sample_TileMesh::getTilePos(const float* pos, int& outTileX, int& outTileY)
 		return;
 	}
 
-	const float* navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
+	const Vec3& navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
 
 	const float tileWorldSize = static_cast<float>(tileSize) * cellSize;
 	outTileX = static_cast<int>((pos[0] - navMeshBoundsMin[0]) / tileWorldSize);
@@ -681,8 +681,8 @@ void Sample_TileMesh::removeTile(const float* pos)
 		return;
 	}
 
-	const float* navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
-	const float* navmeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
+	const Vec3& navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
+	const Vec3& navmeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
 
 	const float tileWorldSize = static_cast<float>(tileSize) * cellSize;
 	const int tileX = static_cast<int>((pos[0] - navMeshBoundsMin[0]) / tileWorldSize);
@@ -712,8 +712,8 @@ void Sample_TileMesh::buildAllTiles()
 		return;
 	}
 
-	const float* navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
-	const float* navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
+	const Vec3& navMeshBoundsMin = inputGeometry->getNavMeshBoundsMin();
+	const Vec3& navMeshBoundsMax = inputGeometry->getNavMeshBoundsMax();
 	int gridWidth = 0;
 	int gridHeight = 0;
 	rcCalcGridSize(navMeshBoundsMin, navMeshBoundsMax, cellSize, &gridWidth, &gridHeight);
@@ -824,8 +824,8 @@ uint8_t* Sample_TileMesh::buildTileMesh(
 	// For example if you build a navmesh for terrain, and want the navmesh tiles to match the terrain tile size
 	// you will need to pass in data from neighbor terrain tiles too! In a simple case, just pass in all the 8 neighbors,
 	// or use the bounding box below to only pass in a sliver of each of the 8 neighbors.
-	rcVcopy(config.bmin, boundsMin);
-	rcVcopy(config.bmax, boundsMax);
+	config.bmin = Vec3(boundsMin);
+	config.bmax = Vec3(boundsMax);
 	config.bmin[0] -= static_cast<float>(config.borderSize) * config.cs;
 	config.bmin[2] -= static_cast<float>(config.borderSize) * config.cs;
 	config.bmax[0] += static_cast<float>(config.borderSize) * config.cs;
@@ -900,11 +900,11 @@ uint8_t* Sample_TileMesh::buildTileMesh(
 		tileTriCount += numNodeTris;
 
 		memset(triareas, 0, numNodeTris * sizeof(uint8_t));
-		rcMarkWalkableTriangles(buildContext, config.walkableSlopeAngle, verts, numVerts, nodeTris, numNodeTris, triareas);
+		rcMarkWalkableTriangles(buildContext, config.walkableSlopeAngle, reinterpret_cast<const Vec3*>(verts), numVerts, nodeTris, numNodeTris, triareas);
 
 		if (!rcRasterizeTriangles(
 				buildContext,
-				verts,
+				reinterpret_cast<const Vec3*>(verts),
 				numVerts,
 				nodeTris,
 				triareas,
@@ -964,7 +964,7 @@ uint8_t* Sample_TileMesh::buildTileMesh(
 	{
 		rcMarkConvexPolyArea(
 			buildContext,
-			vol.verts,
+			reinterpret_cast<const Vec3*>(vol.verts),
 			vol.nverts,
 			vol.hmin,
 			vol.hmax,
@@ -1137,7 +1137,7 @@ uint8_t* Sample_TileMesh::buildTileMesh(
 		params.detailVertsCount = detailPolyMesh->nverts;
 		params.detailTris = detailPolyMesh->tris;
 		params.detailTriCount = detailPolyMesh->ntris;
-		params.offMeshConVerts = inputGeometry->offmeshConnVerts.data();
+		params.offMeshConVerts = reinterpret_cast<const Vec3*>(inputGeometry->offmeshConnVerts.data());
 		params.offMeshConRad = inputGeometry->offmeshConnRadius.data();
 		params.offMeshConDir = inputGeometry->offmeshConnBidirectional.data();
 		params.offMeshConAreas = inputGeometry->offmeshConnArea.data();
@@ -1150,8 +1150,8 @@ uint8_t* Sample_TileMesh::buildTileMesh(
 		params.tileX = tileX;
 		params.tileY = tileY;
 		params.tileLayer = 0;
-		rcVcopy(params.bmin, polyMesh->bmin);
-		rcVcopy(params.bmax, polyMesh->bmax);
+		params.bmin = polyMesh->bmin;
+		params.bmax = polyMesh->bmax;
 		params.cs = config.cs;
 		params.ch = config.ch;
 		params.buildBvTree = true;

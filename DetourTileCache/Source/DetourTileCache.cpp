@@ -357,7 +357,7 @@ dtStatus dtTileCache::removeTile(dtCompressedTileRef ref, uint8_t** data, int* d
 }
 
 
-dtStatus dtTileCache::addObstacle(const float* pos, const float radius, const float height, dtObstacleRef* result)
+dtStatus dtTileCache::addObstacle(const Vec3& pos, const float radius, const float height, dtObstacleRef* result)
 {
 	if (m_nreqs >= MAX_REQUESTS)
 		return DT_FAILURE | DT_BUFFER_TOO_SMALL;
@@ -377,7 +377,7 @@ dtStatus dtTileCache::addObstacle(const float* pos, const float radius, const fl
 	ob->salt = salt;
 	ob->state = DT_OBSTACLE_PROCESSING;
 	ob->type = DT_OBSTACLE_CYLINDER;
-	dtVcopy(ob->cylinder.pos, pos);
+	ob->cylinder.pos = pos;
 	ob->cylinder.radius = radius;
 	ob->cylinder.height = height;
 	
@@ -392,7 +392,7 @@ dtStatus dtTileCache::addObstacle(const float* pos, const float radius, const fl
 	return DT_SUCCESS;
 }
 
-dtStatus dtTileCache::addBoxObstacle(const float* bmin, const float* bmax, dtObstacleRef* result)
+dtStatus dtTileCache::addBoxObstacle(const Vec3& bmin, const Vec3& bmax, dtObstacleRef* result)
 {
 	if (m_nreqs >= MAX_REQUESTS)
 		return DT_FAILURE | DT_BUFFER_TOO_SMALL;
@@ -412,8 +412,8 @@ dtStatus dtTileCache::addBoxObstacle(const float* bmin, const float* bmax, dtObs
 	ob->salt = salt;
 	ob->state = DT_OBSTACLE_PROCESSING;
 	ob->type = DT_OBSTACLE_BOX;
-	dtVcopy(ob->box.bmin, bmin);
-	dtVcopy(ob->box.bmax, bmax);
+	ob->box.bmin = bmin;
+	ob->box.bmax = bmax;
 	
 	ObstacleRequest* req = &m_reqs[m_nreqs++];
 	memset(req, 0, sizeof(ObstacleRequest));
@@ -426,7 +426,7 @@ dtStatus dtTileCache::addBoxObstacle(const float* bmin, const float* bmax, dtObs
 	return DT_SUCCESS;
 }
 
-dtStatus dtTileCache::addBoxObstacle(const float* center, const float* halfExtents, const float yRadians, dtObstacleRef* result)
+dtStatus dtTileCache::addBoxObstacle(const Vec3& center, const Vec3& halfExtents, const float yRadians, dtObstacleRef* result)
 {
 	if (m_nreqs >= MAX_REQUESTS)
 		return DT_FAILURE | DT_BUFFER_TOO_SMALL;
@@ -446,8 +446,8 @@ dtStatus dtTileCache::addBoxObstacle(const float* center, const float* halfExten
 	ob->salt = salt;
 	ob->state = DT_OBSTACLE_PROCESSING;
 	ob->type = DT_OBSTACLE_ORIENTED_BOX;
-	dtVcopy(ob->orientedBox.center, center);
-	dtVcopy(ob->orientedBox.halfExtents, halfExtents);
+	ob->orientedBox.center = center;
+	ob->orientedBox.halfExtents = halfExtents;
 
 	float coshalf= cosf(0.5f*yRadians);
 	float sinhalf = sinf(-0.5f*yRadians);
@@ -480,34 +480,34 @@ dtStatus dtTileCache::removeObstacle(const dtObstacleRef ref)
 	return DT_SUCCESS;
 }
 
-dtStatus dtTileCache::queryTiles(const float* bmin, const float* bmax,
-								 dtCompressedTileRef* results, int* resultCount, const int maxResults) const 
+dtStatus dtTileCache::queryTiles(const Vec3& bmin, const Vec3& bmax,
+								 dtCompressedTileRef* results, int* resultCount, const int maxResults) const
 {
 	const int MAX_TILES = 32;
 	dtCompressedTileRef tiles[MAX_TILES];
-	
+
 	int n = 0;
-	
+
 	const float tw = m_params.width * m_params.cs;
 	const float th = m_params.height * m_params.cs;
-	const int tx0 = (int)dtMathFloorf((bmin[0]-m_params.orig[0]) / tw);
-	const int tx1 = (int)dtMathFloorf((bmax[0]-m_params.orig[0]) / tw);
-	const int ty0 = (int)dtMathFloorf((bmin[2]-m_params.orig[2]) / th);
-	const int ty1 = (int)dtMathFloorf((bmax[2]-m_params.orig[2]) / th);
-	
+	const int tx0 = (int)dtMathFloorf((bmin.x - m_params.orig.x) / tw);
+	const int tx1 = (int)dtMathFloorf((bmax.x - m_params.orig.x) / tw);
+	const int ty0 = (int)dtMathFloorf((bmin.z - m_params.orig.z) / th);
+	const int ty1 = (int)dtMathFloorf((bmax.z - m_params.orig.z) / th);
+
 	for (int ty = ty0; ty <= ty1; ++ty)
 	{
 		for (int tx = tx0; tx <= tx1; ++tx)
 		{
-			const int ntiles = getTilesAt(tx,ty,tiles,MAX_TILES);
-			
+			const int ntiles = getTilesAt(tx, ty, tiles, MAX_TILES);
+
 			for (int i = 0; i < ntiles; ++i)
 			{
 				const dtCompressedTile* tile = &m_tiles[decodeTileIdTile(tiles[i])];
-				float tbmin[3], tbmax[3];
+				Vec3 tbmin, tbmax;
 				calcTightTileBounds(tile->header, tbmin, tbmax);
-				
-				if (dtOverlapBounds(bmin,bmax, tbmin,tbmax))
+
+				if (dtOverlapBounds(bmin, bmax, tbmin, tbmax))
 				{
 					if (n < maxResults)
 						results[n++] = tiles[i];
@@ -515,9 +515,9 @@ dtStatus dtTileCache::queryTiles(const float* bmin, const float* bmax,
 			}
 		}
 	}
-	
+
 	*resultCount = n;
-	
+
 	return DT_SUCCESS;
 }
 
@@ -542,7 +542,7 @@ dtStatus dtTileCache::update(const float /*dt*/, dtNavMesh* navmesh,
 			if (req->action == REQUEST_ADD)
 			{
 				// Find touched tiles.
-				float bmin[3], bmax[3];
+				Vec3 bmin, bmax;
 				getObstacleBounds(ob, bmin, bmax);
 
 				int ntouched = 0;
@@ -751,8 +751,8 @@ dtStatus dtTileCache::buildNavMeshTile(const dtCompressedTileRef ref, dtNavMesh*
 	params.cs = m_params.cs;
 	params.ch = m_params.ch;
 	params.buildBvTree = false;
-	dtVcopy(params.bmin, tile->header->bmin);
-	dtVcopy(params.bmax, tile->header->bmax);
+	params.bmin = tile->header->bmin;
+	params.bmax = tile->header->bmax;
 	
 	if (m_tmproc)
 	{
@@ -782,45 +782,35 @@ dtStatus dtTileCache::buildNavMeshTile(const dtCompressedTileRef ref, dtNavMesh*
 	return DT_SUCCESS;
 }
 
-void dtTileCache::calcTightTileBounds(const dtTileCacheLayerHeader* header, float* bmin, float* bmax) const
+void dtTileCache::calcTightTileBounds(const dtTileCacheLayerHeader* header, Vec3& bmin, Vec3& bmax) const
 {
 	const float cs = m_params.cs;
-	bmin[0] = header->bmin[0] + header->minx*cs;
-	bmin[1] = header->bmin[1];
-	bmin[2] = header->bmin[2] + header->miny*cs;
-	bmax[0] = header->bmin[0] + (header->maxx+1)*cs;
-	bmax[1] = header->bmax[1];
-	bmax[2] = header->bmin[2] + (header->maxy+1)*cs;
+	bmin.x = header->bmin.x + header->minx*cs;
+	bmin.y = header->bmin.y;
+	bmin.z = header->bmin.z + header->miny*cs;
+	bmax.x = header->bmin.x + (header->maxx+1)*cs;
+	bmax.y = header->bmax.y;
+	bmax.z = header->bmin.z + (header->maxy+1)*cs;
 }
 
-void dtTileCache::getObstacleBounds(const struct dtTileCacheObstacle* ob, float* bmin, float* bmax) const
+void dtTileCache::getObstacleBounds(const struct dtTileCacheObstacle* ob, Vec3& bmin, Vec3& bmax) const
 {
 	if (ob->type == DT_OBSTACLE_CYLINDER)
 	{
-		const dtObstacleCylinder &cl = ob->cylinder;
-
-		bmin[0] = cl.pos[0] - cl.radius;
-		bmin[1] = cl.pos[1];
-		bmin[2] = cl.pos[2] - cl.radius;
-		bmax[0] = cl.pos[0] + cl.radius;
-		bmax[1] = cl.pos[1] + cl.height;
-		bmax[2] = cl.pos[2] + cl.radius;
+		const dtObstacleCylinder& cl = ob->cylinder;
+		bmin = Vec3(cl.pos.x - cl.radius, cl.pos.y,             cl.pos.z - cl.radius);
+		bmax = Vec3(cl.pos.x + cl.radius, cl.pos.y + cl.height, cl.pos.z + cl.radius);
 	}
 	else if (ob->type == DT_OBSTACLE_BOX)
 	{
-		dtVcopy(bmin, ob->box.bmin);
-		dtVcopy(bmax, ob->box.bmax);
+		bmin = ob->box.bmin;
+		bmax = ob->box.bmax;
 	}
 	else if (ob->type == DT_OBSTACLE_ORIENTED_BOX)
 	{
-		const dtObstacleOrientedBox &orientedBox = ob->orientedBox;
-
-		float maxr = 1.41f*dtMax(orientedBox.halfExtents[0], orientedBox.halfExtents[2]);
-		bmin[0] = orientedBox.center[0] - maxr;
-		bmax[0] = orientedBox.center[0] + maxr;
-		bmin[1] = orientedBox.center[1] - orientedBox.halfExtents[1];
-		bmax[1] = orientedBox.center[1] + orientedBox.halfExtents[1];
-		bmin[2] = orientedBox.center[2] - maxr;
-		bmax[2] = orientedBox.center[2] + maxr;
+		const dtObstacleOrientedBox& orientedBox = ob->orientedBox;
+		float maxr = 1.41f*dtMax(orientedBox.halfExtents.x, orientedBox.halfExtents.z);
+		bmin = Vec3(orientedBox.center.x - maxr, orientedBox.center.y - orientedBox.halfExtents.y, orientedBox.center.z - maxr);
+		bmax = Vec3(orientedBox.center.x + maxr, orientedBox.center.y + orientedBox.halfExtents.y, orientedBox.center.z + maxr);
 	}
 }

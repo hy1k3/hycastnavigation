@@ -22,6 +22,7 @@
 
 #include "DetourAlloc.h"
 #include "DetourStatus.h"
+#include "Vec3.h"
 
 static const int DT_TILECACHE_MAGIC = 'D'<<24 | 'T'<<16 | 'L'<<8 | 'R'; ///< 'DTLR';
 static const int DT_TILECACHE_VERSION = 1;
@@ -35,7 +36,7 @@ struct dtTileCacheLayerHeader
 	int magic;								///< Data magic
 	int version;							///< Data version
 	int tx,ty,tlayer;
-	float bmin[3], bmax[3];
+	Vec3 bmin, bmax;
 	uint16_t hmin, hmax;				///< Height min/max range
 	uint8_t width, height;			///< Dimension of the layer.
 	uint8_t minx, maxx, miny, maxy;	///< Usable sub-region.
@@ -125,14 +126,14 @@ void dtFreeTileCacheContourSet(dtTileCacheAlloc* alloc, dtTileCacheContourSet* c
 dtTileCachePolyMesh* dtAllocTileCachePolyMesh(dtTileCacheAlloc* alloc);
 void dtFreeTileCachePolyMesh(dtTileCacheAlloc* alloc, dtTileCachePolyMesh* lmesh);
 
-dtStatus dtMarkCylinderArea(dtTileCacheLayer& layer, const float* orig, const float cs, const float ch,
-							const float* pos, const float radius, const float height, const uint8_t areaId);
+dtStatus dtMarkCylinderArea(dtTileCacheLayer& layer, const Vec3& orig, const float cs, const float ch,
+							const Vec3& pos, const float radius, const float height, const uint8_t areaId);
 
-dtStatus dtMarkBoxArea(dtTileCacheLayer& layer, const float* orig, const float cs, const float ch,
-					   const float* bmin, const float* bmax, const uint8_t areaId);
+dtStatus dtMarkBoxArea(dtTileCacheLayer& layer, const Vec3& orig, const float cs, const float ch,
+					   const Vec3& bmin, const Vec3& bmax, const uint8_t areaId);
 
-dtStatus dtMarkBoxArea(dtTileCacheLayer& layer, const float* orig, const float cs, const float ch,
-					   const float* center, const float* halfExtents, const float* rotAux, const uint8_t areaId);
+dtStatus dtMarkBoxArea(dtTileCacheLayer& layer, const Vec3& orig, const float cs, const float ch,
+					   const Vec3& center, const Vec3& halfExtents, const float* rotAux, const uint8_t areaId);
 
 dtStatus dtBuildTileCacheRegions(dtTileCacheAlloc* alloc,
 								 dtTileCacheLayer& layer,

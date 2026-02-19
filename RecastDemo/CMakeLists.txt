@@ -52,6 +52,7 @@ target_sources(RecastDemo PRIVATE
 
 target_include_directories(RecastDemo PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/Include
+	${CMAKE_SOURCE_DIR}/Math/Include
 )
 
 set_target_properties(RecastDemo PROPERTIES

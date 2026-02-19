@@ -71,9 +71,9 @@ static bool circumCircle(const float* p1, const float* p2, const float* p3,
 	// Calculate the circle relative to p1, to avoid some precision issues.
 	const float v1[3] = {0,0,0};
 	float v2[3], v3[3];
-	rcVsub(v2, p2,p1);
-	rcVsub(v3, p3,p1);
-	
+	v2[0]=p2[0]-p1[0]; v2[1]=p2[1]-p1[1]; v2[2]=p2[2]-p1[2];
+	v3[0]=p3[0]-p1[0]; v3[1]=p3[1]-p1[1]; v3[2]=p3[2]-p1[2];
+
 	const float cp = vcross2(v1, v2, v3);
 	if (fabsf(cp) > EPS)
 	{
@@ -84,11 +84,11 @@ static bool circumCircle(const float* p1, const float* p2, const float* p3,
 		c[1] = 0;
 		c[2] = (v1Sq*(v3[0]-v2[0]) + v2Sq*(v1[0]-v3[0]) + v3Sq*(v2[0]-v1[0])) / (2*cp);
 		r = vdist2(c, v1);
-		rcVadd(c, c, p1);
+		c[0]+=p1[0]; c[1]+=p1[1]; c[2]+=p1[2];
 		return true;
 	}
-	
-	rcVcopy(c, p1);
+
+	c[0]=p1[0]; c[1]=p1[1]; c[2]=p1[2];
 	r = 0;
 	return false;
 }
@@ -96,9 +96,9 @@ static bool circumCircle(const float* p1, const float* p2, const float* p3,
 static float distPtTri(const float* p, const float* a, const float* b, const float* c)
 {
 	float v0[3], v1[3], v2[3];
-	rcVsub(v0, c,a);
-	rcVsub(v1, b,a);
-	rcVsub(v2, p,a);
+	v0[0]=c[0]-a[0]; v0[1]=c[1]-a[1]; v0[2]=c[2]-a[2];
+	v1[0]=b[0]-a[0]; v1[1]=b[1]-a[1]; v1[2]=b[2]-a[2];
+	v2[0]=p[0]-a[0]; v2[1]=p[1]-a[1]; v2[2]=p[2]-a[2];
 	
 	const float dot00 = vdot2(v0, v0);
 	const float dot01 = vdot2(v0, v1);
@@ -685,7 +685,7 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 	nverts = nin;
 	
 	for (int i = 0; i < nin; ++i)
-		rcVcopy(&verts[i*3], &in[i*3]);
+		memcpy(&verts[i*3], &in[i*3], sizeof(float)*3);
 	
 	edges.clear();
 	tris.clear();
@@ -785,7 +785,7 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 			{
 				for (int k = nidx-2; k > 0; --k)
 				{
-					rcVcopy(&verts[nverts*3], &edge[idx[k]*3]);
+					memcpy(&verts[nverts*3], &edge[idx[k]*3], sizeof(float)*3);
 					hull[nhull++] = nverts;
 					nverts++;
 				}
@@ -794,7 +794,7 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 			{
 				for (int k = 1; k < nidx-1; ++k)
 				{
-					rcVcopy(&verts[nverts*3], &edge[idx[k]*3]);
+					memcpy(&verts[nverts*3], &edge[idx[k]*3], sizeof(float)*3);
 					hull[nhull++] = nverts;
 					nverts++;
 				}
@@ -827,12 +827,12 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 	{
 		// Create sample locations in a grid.
 		float bmin[3], bmax[3];
-		rcVcopy(bmin, in);
-		rcVcopy(bmax, in);
+		memcpy(bmin, in, sizeof(float)*3);
+		memcpy(bmax, in, sizeof(float)*3);
 		for (int i = 1; i < nin; ++i)
 		{
-			rcVmin(bmin, &in[i*3]);
-			rcVmax(bmax, &in[i*3]);
+			bmin[0]=rcMin(bmin[0],in[i*3+0]); bmin[1]=rcMin(bmin[1],in[i*3+1]); bmin[2]=rcMin(bmin[2],in[i*3+2]);
+			bmax[0]=rcMax(bmax[0],in[i*3+0]); bmax[1]=rcMax(bmax[1],in[i*3+1]); bmax[2]=rcMax(bmax[2],in[i*3+2]);
 		}
 		int x0 = (int)floorf(bmin[0]/sampleDist);
 		int x1 = (int)ceilf(bmax[0]/sampleDist);
@@ -885,7 +885,7 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 				{
 					bestd = d;
 					besti = i;
-					rcVcopy(bestpt,pt);
+					memcpy(bestpt, pt, sizeof(float)*3);
 				}
 			}
 			// If the max error is within accepted threshold, stop tesselating.
@@ -894,7 +894,7 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 			// Mark sample as added.
 			samples[besti*4+3] = 1;
 			// Add the new sample point.
-			rcVcopy(&verts[nverts*3],bestpt);
+			memcpy(&verts[nverts*3], bestpt, sizeof(float)*3);
 			nverts++;
 			
 			// Create new triangulation.
@@ -1194,7 +1194,7 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 	const int nvp = mesh.nvp;
 	const float cs = mesh.cs;
 	const float ch = mesh.ch;
-	const float* orig = mesh.bmin;
+	const Vec3& orig = mesh.bmin;
 	const int borderSize = mesh.borderSize;
 	const int heightSearchRadius = rcMax(1, (int)ceilf(mesh.maxEdgeError));
 	
@@ -1272,10 +1272,10 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 	int tcap = vcap*2;
 	
 	dmesh.nverts = 0;
-	dmesh.verts = (float*)rcAlloc(sizeof(float)*vcap*3, RC_ALLOC_PERM);
+	dmesh.verts = (Vec3*)rcAlloc(sizeof(Vec3)*vcap, RC_ALLOC_PERM);
 	if (!dmesh.verts)
 	{
-		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.verts' (%d).", vcap*3);
+		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.verts' (%d).", vcap);
 		return false;
 	}
 	dmesh.ntris = 0;
@@ -1323,16 +1323,16 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		// Move detail verts to world space.
 		for (int j = 0; j < nverts; ++j)
 		{
-			verts[j*3+0] += orig[0];
-			verts[j*3+1] += orig[1] + chf.ch; // Is this offset necessary?
-			verts[j*3+2] += orig[2];
+			verts[j*3+0] += orig.x;
+			verts[j*3+1] += orig.y + chf.ch; // Is this offset necessary?
+			verts[j*3+2] += orig.z;
 		}
 		// Offset poly too, will be used to flag checking.
 		for (int j = 0; j < npoly; ++j)
 		{
-			poly[j*3+0] += orig[0];
-			poly[j*3+1] += orig[1];
-			poly[j*3+2] += orig[2];
+			poly[j*3+0] += orig.x;
+			poly[j*3+1] += orig.y;
+			poly[j*3+2] += orig.z;
 		}
 		
 		// Store detail submesh.
@@ -1349,22 +1349,20 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 			while (dmesh.nverts+nverts > vcap)
 				vcap += 256;
 			
-			float* newv = (float*)rcAlloc(sizeof(float)*vcap*3, RC_ALLOC_PERM);
+			Vec3* newv = (Vec3*)rcAlloc(sizeof(Vec3)*vcap, RC_ALLOC_PERM);
 			if (!newv)
 			{
-				ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'newv' (%d).", vcap*3);
+				ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'newv' (%d).", vcap);
 				return false;
 			}
 			if (dmesh.nverts)
-				memcpy(newv, dmesh.verts, sizeof(float)*3*dmesh.nverts);
+				memcpy(newv, dmesh.verts, sizeof(Vec3)*dmesh.nverts);
 			rcFree(dmesh.verts);
 			dmesh.verts = newv;
 		}
 		for (int j = 0; j < nverts; ++j)
 		{
-			dmesh.verts[dmesh.nverts*3+0] = verts[j*3+0];
-			dmesh.verts[dmesh.nverts*3+1] = verts[j*3+1];
-			dmesh.verts[dmesh.nverts*3+2] = verts[j*3+2];
+			dmesh.verts[dmesh.nverts] = Vec3(verts[j*3+0], verts[j*3+1], verts[j*3+2]);
 			dmesh.nverts++;
 		}
 		
@@ -1434,13 +1432,13 @@ bool rcMergePolyMeshDetails(rcContext* ctx, rcPolyMeshDetail** meshes, const int
 	}
 	
 	mesh.nverts = 0;
-	mesh.verts = (float*)rcAlloc(sizeof(float)*maxVerts*3, RC_ALLOC_PERM);
+	mesh.verts = (Vec3*)rcAlloc(sizeof(Vec3)*maxVerts, RC_ALLOC_PERM);
 	if (!mesh.verts)
 	{
-		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.verts' (%d).", maxVerts*3);
+		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.verts' (%d).", maxVerts);
 		return false;
 	}
-	
+
 	// Merge datas.
 	for (int i = 0; i < nmeshes; ++i)
 	{
@@ -1456,10 +1454,10 @@ bool rcMergePolyMeshDetails(rcContext* ctx, rcPolyMeshDetail** meshes, const int
 			dst[3] = src[3];
 			mesh.nmeshes++;
 		}
-		
+
 		for (int k = 0; k < dm->nverts; ++k)
 		{
-			rcVcopy(&mesh.verts[mesh.nverts*3], &dm->verts[k*3]);
+			mesh.verts[mesh.nverts] = dm->verts[k];
 			mesh.nverts++;
 		}
 		for (int k = 0; k < dm->ntris; ++k)

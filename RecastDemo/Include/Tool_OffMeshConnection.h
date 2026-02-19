@@ -21,12 +21,13 @@
 #include <cstdint>
 
 #include "Sample.h"
+#include "Vec3.h"
 
 /// Tool to create off-mesh connections for InputGeom
 class OffMeshConnectionTool : public SampleTool
 {
 	Sample* sample = nullptr;
-	float hitPos[3];
+	Vec3 hitPos;
 	bool hitPosSet = false;
 	bool bidirectional = true;
 	uint8_t oldFlags = 0;

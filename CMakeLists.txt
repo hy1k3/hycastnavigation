@@ -67,6 +67,10 @@ configure_file(
     "${RecastNavigation_BINARY_DIR}/version.h")
 install(FILES "${RecastNavigation_BINARY_DIR}/version.h" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/recastnavigation)
 
+install(FILES "${RecastNavigation_SOURCE_DIR}/Math/Include/Vec3.h"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/recastnavigation
+)
+
 # Needed for recastnavigation.pc.in
 set(prefix ${CMAKE_INSTALL_PREFIX})
 set(exec_prefix "\${prefix}")

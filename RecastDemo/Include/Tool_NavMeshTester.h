@@ -23,6 +23,7 @@
 #include "DetourNavMesh.h"
 #include "DetourNavMeshQuery.h"
 #include "Sample.h"
+#include "Vec3.h"
 
 class NavMeshTesterTool : public SampleTool
 {
@@ -55,27 +56,27 @@ class NavMeshTesterTool : public SampleTool
 	dtPolyRef polys[MAX_POLYS];
 	dtPolyRef parent[MAX_POLYS];
 	int npolys = 0;
-	float straightPath[MAX_POLYS * 3];
+	Vec3 straightPath[MAX_POLYS];
 	uint8_t straightPathFlags[MAX_POLYS];
 	dtPolyRef straightPathPolys[MAX_POLYS];
 	int nstraightPath = 0;
-	float polyPickExt[3] = {2, 4, 2};
+	Vec3 polyPickExt = Vec3(2, 4, 2);
 
-	float smoothPath[MAX_SMOOTH * 3];
+	Vec3 smoothPath[MAX_SMOOTH];
 	int nsmoothPath = 0;
-	float queryPoly[4 * 3];
+	Vec3 queryPoly[4];
 
-	float randPoints[MAX_RAND_POINTS * 3];
+	Vec3 randPoints[MAX_RAND_POINTS];
 	int nrandPoints = 0;
 	bool randPointsInCircle = false;
 
 	bool sposSet = false;
-	float spos[3];
+	Vec3 spos;
 	bool eposSet = false;
-	float epos[3];
+	Vec3 epos;
 
-	float hitPos[3];
-	float hitNormal[3];
+	Vec3 hitPos;
+	Vec3 hitNormal;
 	bool hitResult = false;
 	float distanceToWall = 0;
 	float neighborhoodRadius = 2.5f;
@@ -84,13 +85,13 @@ class NavMeshTesterTool : public SampleTool
 	int pathIterNum = 0;
 	dtPolyRef pathIterPolys[MAX_POLYS];
 	int pathIterPolyCount = 0;
-	float prevIterPos[3];
-	float iterPos[3];
-	float steerPos[3];
-	float targetPos[3];
+	Vec3 prevIterPos;
+	Vec3 iterPos;
+	Vec3 steerPos;
+	Vec3 targetPos;
 
 	static constexpr int MAX_STEER_POINTS = 10;
-	float steerPoints[MAX_STEER_POINTS * 3];
+	Vec3 steerPoints[MAX_STEER_POINTS];
 	int steerPointCount = 0;
 
 public:
@@ -108,5 +109,5 @@ public:
 	void drawOverlayUI() override;
 
 	void recalc();
-	void drawAgent(const float* pos, float r, float h, float c, const uint32_t col) const;
+	void drawAgent(const Vec3& pos, float r, float h, float c, const uint32_t col) const;
 };
