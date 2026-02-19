@@ -912,7 +912,7 @@ uint8_t* Sample_TileMesh::buildTileMesh(
 			rcComputeNormals(chunk, count, normals);
 			memset(triareas + base, 0, count * sizeof(uint8_t));
 			rcMarkWalkableTriangles(buildContext, normals, count, config.walkableSlopeAngle, triareas + base);
-			if (!rcRasterizeTriangles(buildContext, chunk, count,
+			if (!rcRasterizeTriangles(buildContext, chunk, normals, count,
 			                         triareas + base, *heightfield, config.walkableClimb))
 				return 0;
 		}

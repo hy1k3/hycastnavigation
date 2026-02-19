@@ -526,7 +526,9 @@ TEST_CASE("rcRasterizeTriangles", "[recast]")
 		TriChunk chunk;
 		for (int i = 0; i < 2; ++i)
 			chunk.set(i, verts[tris[i*3]], verts[tris[i*3+1]], verts[tris[i*3+2]]);
-		REQUIRE(rcRasterizeTriangles(&ctx, chunk, 2, areas, solid, flagMergeThr));
+		NormalChunk normals;
+		rcComputeNormals(chunk, 2, normals);
+		REQUIRE(rcRasterizeTriangles(&ctx, chunk, normals, 2, areas, solid, flagMergeThr));
 
 		REQUIRE(solid.spans[0 + 0 * width]);
 		REQUIRE(solid.spans[0 + 1 * width]);
@@ -577,7 +579,9 @@ TEST_CASE("rcRasterizeTriangles", "[recast]")
 		TriChunk chunk;
 		for (int i = 0; i < 2; ++i)
 			chunk.set(i, verts[utris[i*3]], verts[utris[i*3+1]], verts[utris[i*3+2]]);
-		REQUIRE(rcRasterizeTriangles(&ctx, chunk, 2, areas, solid, flagMergeThr));
+		NormalChunk normals;
+		rcComputeNormals(chunk, 2, normals);
+		REQUIRE(rcRasterizeTriangles(&ctx, chunk, normals, 2, areas, solid, flagMergeThr));
 
 		REQUIRE(solid.spans[0 + 0 * width]);
 		REQUIRE(solid.spans[0 + 1 * width]);
@@ -633,7 +637,9 @@ TEST_CASE("rcRasterizeTriangles", "[recast]")
 		TriChunk chunk;
 		for (int i = 0; i < 2; ++i)
 			chunk.set(i, vertsList[i*3], vertsList[i*3+1], vertsList[i*3+2]);
-		REQUIRE(rcRasterizeTriangles(&ctx, chunk, 2, areas, solid, flagMergeThr));
+		NormalChunk normals;
+		rcComputeNormals(chunk, 2, normals);
+		REQUIRE(rcRasterizeTriangles(&ctx, chunk, normals, 2, areas, solid, flagMergeThr));
 
 		REQUIRE(solid.spans[0 + 0 * width]);
 		REQUIRE(solid.spans[0 + 1 * width]);

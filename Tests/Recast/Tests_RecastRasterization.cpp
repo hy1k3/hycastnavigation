@@ -251,7 +251,9 @@ TEST_CASE("rcRasterizeTriangle", "[recast][rasterization]")
 	auto rasterize = [&](const Vec3& a, const Vec3& b, const Vec3& c) -> bool {
 		TriChunk chunk;
 		chunk.set(0, a, b, c);
-		return rcRasterizeTriangles(&ctx, chunk, 1, &walkable, hf, 1);
+		NormalChunk normals;
+		rcComputeNormals(chunk, 1, normals);
+		return rcRasterizeTriangles(&ctx, chunk, normals, 1, &walkable, hf, 1);
 	};
 
 	SECTION("Simple triangle in XZ plane")

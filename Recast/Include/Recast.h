@@ -828,7 +828,8 @@ void rcMarkWalkableTriangles(rcContext* context, const NormalChunk& normals, int
 ///										[Limit: >= 0] [Units: vx]
 /// @returns True if the operation completed successfully.
 [[nodiscard]] bool rcRasterizeTriangles(rcContext* context,
-                          const TriChunk& chunk, int numTris, const uint8_t* triAreaIDs,
+                          const TriChunk& chunk, const NormalChunk& normals,
+                          int numTris, const uint8_t* triAreaIDs,
                           rcHeightfield& heightfield, int flagMergeThreshold = 1);
 
 /// Marks non-walkable spans as walkable if their maximum is within @p walkableClimb of the span below them.
