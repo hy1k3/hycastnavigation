@@ -367,11 +367,18 @@ void rcMarkWalkableTriangles(rcContext* context, const TriChunk& chunk, const in
 			_mm_cmpgt_ps(ny, zero),
 			_mm_cmpgt_ps(_mm_mul_ps(ny, ny), _mm_mul_ps(simdThr2, lenSq)));
 
-		const int mask = _mm_movemask_ps(walkable);
-		if (mask & 1) triAreaIDs[i+0] = RC_WALKABLE_AREA;
-		if (mask & 2) triAreaIDs[i+1] = RC_WALKABLE_AREA;
-		if (mask & 4) triAreaIDs[i+2] = RC_WALKABLE_AREA;
-		if (mask & 8) triAreaIDs[i+3] = RC_WALKABLE_AREA;
+		// Narrow float mask to 4-byte mask (0xFF = walkable, 0x00 = not)
+		const __m128i mask32 = _mm_castps_si128(walkable);
+		const __m128i mask8  = _mm_packs_epi16(_mm_packs_epi32(mask32, mask32), _mm_setzero_si128());
+
+		// OR RC_WALKABLE_AREA into existing area IDs (branchless)
+		int32_t existing;
+		memcpy(&existing, triAreaIDs + i, 4);
+		const __m128i updated = _mm_or_si128(
+			_mm_cvtsi32_si128(existing),
+			_mm_and_si128(mask8, _mm_set1_epi8((char)RC_WALKABLE_AREA)));
+		const int32_t result = _mm_cvtsi128_si32(updated);
+		memcpy(triAreaIDs + i, &result, 4);
 	}
 #endif
 
@@ -382,7 +389,7 @@ void rcMarkWalkableTriangles(rcContext* context, const TriChunk& chunk, const in
 		const Vec3 c(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]);
 		const Vec3 n = (b - a).cross(c - a);
 		if (n.y > 0.0f && n.y * n.y > thr2 * n.dot(n))
-			triAreaIDs[i] = RC_WALKABLE_AREA;
+			triAreaIDs[i] |= RC_WALKABLE_AREA;
 	}
 }
 
