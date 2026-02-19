@@ -2301,10 +2301,10 @@ dtStatus dtNavMeshQuery::getPortalPoints(dtPolyRef from, const dtPoly* fromPoly,
 	}
 
 	// Find portal vertices.
-	const int v0 = fromPoly->verts[link->edge];
-	const int v1 = fromPoly->verts[(link->edge+1) % (int)fromPoly->vertCount];
-	left = fromTile->verts[v0];
-	right = fromTile->verts[v1];
+	const int leftVertIdx = fromPoly->verts[link->edge];
+	const int rightVertIdx = fromPoly->verts[(link->edge+1) % (int)fromPoly->vertCount];
+	left = fromTile->verts[leftVertIdx];
+	right = fromTile->verts[rightVertIdx];
 
 	// If the link is at tile boundary, dtClamp the vertices to
 	// the link width.
@@ -2316,8 +2316,8 @@ dtStatus dtNavMeshQuery::getPortalPoints(dtPolyRef from, const dtPoly* fromPoly,
 			const float s = 1.0f/255.0f;
 			const float tmin = link->bmin*s;
 			const float tmax = link->bmax*s;
-			left = lerp(fromTile->verts[v0], fromTile->verts[v1], tmin);
-			right = lerp(fromTile->verts[v0], fromTile->verts[v1], tmax);
+			left = lerp(fromTile->verts[leftVertIdx], fromTile->verts[rightVertIdx], tmin);
+			right = lerp(fromTile->verts[leftVertIdx], fromTile->verts[rightVertIdx], tmax);
 		}
 	}
 	
@@ -2576,10 +2576,8 @@ dtStatus dtNavMeshQuery::raycast(dtPolyRef startRef, const Vec3& startPos, const
 			}
 			
 			// Check for partial edge links.
-			const int v0 = poly->verts[link->edge];
-			const int v1 = poly->verts[(link->edge+1) % poly->vertCount];
-			const Vec3& left = tile->verts[v0];
-			const Vec3& right = tile->verts[v1];
+			const Vec3& left = tile->verts[poly->verts[link->edge]];
+			const Vec3& right = tile->verts[poly->verts[(link->edge+1) % poly->vertCount]];
 
 			// Check that the intersection lies inside the link portal.
 			if (link->side == 0 || link->side == 4)

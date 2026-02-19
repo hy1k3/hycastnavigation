@@ -312,8 +312,8 @@ int dtNavMesh::findConnectingPolys(const Vec3& va, const Vec3& vb,
 
 	// Remove links pointing to 'side' and compact the links array.
 	float bmin[2], bmax[2];
-	uint16_t m = DT_EXT_LINK | (uint16_t)side;
-	int n = 0;
+	const uint16_t sideEdgeFlag = DT_EXT_LINK | (uint16_t)side;
+	int numCon = 0;
 
 	dtPolyRef base = getPolyRefBase(tile);
 
@@ -324,7 +324,7 @@ int dtNavMesh::findConnectingPolys(const Vec3& va, const Vec3& vb,
 		for (int j = 0; j < nv; ++j)
 		{
 			// Skip edges which do not point to the right side.
-			if (poly->neis[j] != m) continue;
+			if (poly->neis[j] != sideEdgeFlag) continue;
 
 			const Vec3& vc = tile->verts[poly->verts[j]];
 			const Vec3& vd = tile->verts[poly->verts[(j+1) % nv]];
@@ -340,17 +340,17 @@ int dtNavMesh::findConnectingPolys(const Vec3& va, const Vec3& vb,
 			if (!overlapSlabs(amin,amax, bmin,bmax, 0.01f, tile->header->walkableClimb)) continue;
 
 			// Add return value.
-			if (n < maxcon)
+			if (numCon < maxcon)
 			{
-				conarea[n*2+0] = dtMax(amin[0], bmin[0]);
-				conarea[n*2+1] = dtMin(amax[0], bmax[0]);
-				con[n] = base | (dtPolyRef)i;
-				n++;
+				conarea[numCon*2+0] = dtMax(amin[0], bmin[0]);
+				conarea[numCon*2+1] = dtMin(amax[0], bmax[0]);
+				con[numCon] = base | (dtPolyRef)i;
+				numCon++;
 			}
 			break;
 		}
 	}
-	return n;
+	return numCon;
 }
 
 void dtNavMesh::unconnectLinks(dtMeshTile* tile, dtMeshTile* target)
