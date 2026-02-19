@@ -23,6 +23,12 @@
 
 #include <math.h>
 #include <string.h>
+
+#if defined(__SSE2__) || defined(_M_X64) || \
+    (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+#  define RC_USE_SSE2 1
+#  include <immintrin.h>
+#endif
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -324,34 +330,59 @@ bool rcCreateHeightfield(rcContext* context, rcHeightfield& heightfield, int siz
 	return true;
 }
 
-static Vec3 calcTriNormal(const Vec3& v0, const Vec3& v1, const Vec3& v2)
-{
-	Vec3 e0 = v1 - v0;
-	Vec3 e1 = v2 - v0;
-	Vec3 n = e0.cross(e1);
-	n.normalize();
-	return n;
-}
-
-void rcMarkWalkableTriangles(rcContext* context, const float walkableSlopeAngle,
-                             const Vec3* verts, const int numVerts,
-                             const int* tris, const int numTris,
-                             uint8_t* triAreaIDs)
+void rcMarkWalkableTriangles(rcContext* context, const TriChunk& chunk, const int numTris,
+                             const float walkableSlopeAngle, uint8_t* triAreaIDs)
 {
 	rcIgnoreUnused(context);
-	rcIgnoreUnused(numVerts);
 
-	const float walkableThr = cosf(walkableSlopeAngle / 180.0f * RC_PI);
+	// walkable if ny/|n| > cos(angle), i.e. ny^2 > cos^2(angle) * |n|^2 (with ny > 0)
+	const float thr = cosf(walkableSlopeAngle / 180.0f * RC_PI);
+	const float thr2 = thr * thr;
 
-	for (int i = 0; i < numTris; ++i)
+	int i = 0;
+
+#ifdef RC_USE_SSE2
+	const __m128 simdThr2 = _mm_set1_ps(thr2);
+	const __m128 zero     = _mm_setzero_ps();
+
+	for (; i + 4 <= numTris; i += 4)
 	{
-		const int* tri = &tris[i * 3];
-		Vec3 norm = calcTriNormal(verts[tri[0]], verts[tri[1]], verts[tri[2]]);
-		// Check if the face is walkable.
-		if (norm.y > walkableThr)
-		{
+		const __m128 ax = _mm_loadu_ps(chunk.v0x + i), ay = _mm_loadu_ps(chunk.v0y + i), az = _mm_loadu_ps(chunk.v0z + i);
+		const __m128 bx = _mm_loadu_ps(chunk.v1x + i), by = _mm_loadu_ps(chunk.v1y + i), bz = _mm_loadu_ps(chunk.v1z + i);
+		const __m128 cx = _mm_loadu_ps(chunk.v2x + i), cy = _mm_loadu_ps(chunk.v2y + i), cz = _mm_loadu_ps(chunk.v2z + i);
+
+		// Edge vectors e0 = b-a, e1 = c-a
+		const __m128 e0x = _mm_sub_ps(bx, ax), e0y = _mm_sub_ps(by, ay), e0z = _mm_sub_ps(bz, az);
+		const __m128 e1x = _mm_sub_ps(cx, ax), e1y = _mm_sub_ps(cy, ay), e1z = _mm_sub_ps(cz, az);
+
+		// Cross product n = e0 x e1
+		const __m128 nx = _mm_sub_ps(_mm_mul_ps(e0y, e1z), _mm_mul_ps(e0z, e1y));
+		const __m128 ny = _mm_sub_ps(_mm_mul_ps(e0z, e1x), _mm_mul_ps(e0x, e1z));
+		const __m128 nz = _mm_sub_ps(_mm_mul_ps(e0x, e1y), _mm_mul_ps(e0y, e1x));
+
+		const __m128 lenSq = _mm_add_ps(_mm_add_ps(_mm_mul_ps(nx, nx), _mm_mul_ps(ny, ny)), _mm_mul_ps(nz, nz));
+
+		// walkable: ny > 0 && ny^2 > thr2 * |n|^2
+		const __m128 walkable = _mm_and_ps(
+			_mm_cmpgt_ps(ny, zero),
+			_mm_cmpgt_ps(_mm_mul_ps(ny, ny), _mm_mul_ps(simdThr2, lenSq)));
+
+		const int mask = _mm_movemask_ps(walkable);
+		if (mask & 1) triAreaIDs[i+0] = RC_WALKABLE_AREA;
+		if (mask & 2) triAreaIDs[i+1] = RC_WALKABLE_AREA;
+		if (mask & 4) triAreaIDs[i+2] = RC_WALKABLE_AREA;
+		if (mask & 8) triAreaIDs[i+3] = RC_WALKABLE_AREA;
+	}
+#endif
+
+	for (; i < numTris; ++i)
+	{
+		const Vec3 a(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]);
+		const Vec3 b(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]);
+		const Vec3 c(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]);
+		const Vec3 n = (b - a).cross(c - a);
+		if (n.y > 0.0f && n.y * n.y > thr2 * n.dot(n))
 			triAreaIDs[i] = RC_WALKABLE_AREA;
-		}
 	}
 }
 

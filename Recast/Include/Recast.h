@@ -731,6 +731,27 @@ void rcCalcGridSize(const Vec3& minBounds, const Vec3& maxBounds, float cellSize
 						 const Vec3& minBounds, const Vec3& maxBounds,
 						 float cellSize, float cellHeight);
 
+/// Maximum number of triangles per TriChunk.
+static constexpr int RC_SOA_CHUNK = 256;
+
+/// Triangle vertex data in Structure-of-Arrays layout for up to RC_SOA_CHUNK triangles.
+///
+/// Build a TriChunk by calling set() for each triangle index, then pass it to
+/// rcMarkWalkableTriangles and rcRasterizeTriangles.  Chunk at most RC_SOA_CHUNK triangles at a time.
+struct TriChunk
+{
+    float v0x[RC_SOA_CHUNK], v0y[RC_SOA_CHUNK], v0z[RC_SOA_CHUNK];
+    float v1x[RC_SOA_CHUNK], v1y[RC_SOA_CHUNK], v1z[RC_SOA_CHUNK];
+    float v2x[RC_SOA_CHUNK], v2y[RC_SOA_CHUNK], v2z[RC_SOA_CHUNK];
+
+    void set(int i, const Vec3& a, const Vec3& b, const Vec3& c)
+    {
+        v0x[i]=a.x; v0y[i]=a.y; v0z[i]=a.z;
+        v1x[i]=b.x; v1y[i]=b.y; v1z[i]=b.z;
+        v2x[i]=c.x; v2y[i]=c.y; v2z[i]=c.z;
+    }
+};
+
 /// Sets the area id of all triangles with a slope below the specified value
 /// to #RC_WALKABLE_AREA.
 ///
@@ -743,15 +764,13 @@ void rcCalcGridSize(const Vec3& minBounds, const Vec3& maxBounds, float cellSize
 /// 
 /// @ingroup recast
 /// @param[in,out]	context				The build context to use during the operation.
+/// @param[in]		chunk				Triangle data in SoA layout.
+/// @param[in]		numTris				The number of valid triangles in @p chunk. [Limit: <= RC_SOA_CHUNK]
 /// @param[in]		walkableSlopeAngle	The maximum slope that is considered walkable.
 /// 									[Limits: 0 <= value < 90] [Units: Degrees]
-/// @param[in]		verts				The vertices. [(x, y, z) * @p nv]
-/// @param[in]		numVerts			The number of vertices.
-/// @param[in]		tris				The triangle vertex indices. [(vertA, vertB, vertC) * @p nt]
-/// @param[in]		numTris				The number of triangles.
-/// @param[out]		triAreaIDs			The triangle area ids. [Length: >= @p nt]
-void rcMarkWalkableTriangles(rcContext* context, float walkableSlopeAngle, const Vec3* verts, int numVerts,
-							 const int* tris, int numTris, uint8_t* triAreaIDs);
+/// @param[out]		triAreaIDs			The triangle area ids. [Length: >= @p numTris]
+void rcMarkWalkableTriangles(rcContext* context, const TriChunk& chunk, int numTris,
+                             float walkableSlopeAngle, uint8_t* triAreaIDs);
 
 
 /// Adds a span to the specified heightfield.
@@ -776,28 +795,6 @@ void rcMarkWalkableTriangles(rcContext* context, float walkableSlopeAngle, const
 	           int x, int z,
                uint16_t spanMin, uint16_t spanMax,
                uint8_t areaID, int flagMergeThreshold);
-
-/// Maximum number of triangles per TriChunk.
-static constexpr int RC_SOA_CHUNK = 256;
-
-/// Triangle vertex data in Structure-of-Arrays layout for up to RC_SOA_CHUNK triangles.
-///
-/// Build a TriChunk by calling set() for each triangle index, then pass it to
-/// rcRasterizeTriangles.  Chunk at most RC_SOA_CHUNK triangles at a time.
-struct TriChunk
-{
-    float v0x[RC_SOA_CHUNK], v0y[RC_SOA_CHUNK], v0z[RC_SOA_CHUNK];
-    float v1x[RC_SOA_CHUNK], v1y[RC_SOA_CHUNK], v1z[RC_SOA_CHUNK];
-    float v2x[RC_SOA_CHUNK], v2y[RC_SOA_CHUNK], v2z[RC_SOA_CHUNK];
-
-    void set(int i, const Vec3& a, const Vec3& b, const Vec3& c)
-    {
-        v0x[i]=a.x; v0y[i]=a.y; v0z[i]=a.z;
-        v1x[i]=b.x; v1y[i]=b.y; v1z[i]=b.z;
-        v2x[i]=c.x; v2y[i]=c.y; v2z[i]=c.z;
-    }
-};
-
 
 /// Rasterizes up to RC_SOA_CHUNK triangles from a TriChunk into the specified heightfield.
 ///
