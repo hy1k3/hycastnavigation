@@ -50,30 +50,30 @@ template<class T> inline void dtSwap(T& a, T& b) { T t = a; a = b; b = t; }
 ///  @param[in]		a	Value A
 ///  @param[in]		b	Value B
 ///  @return The minimum of the two values.
-template<class T> inline T dtMin(T a, T b) { return a < b ? a : b; }
+template<class T> inline constexpr T dtMin(T a, T b) { return a < b ? a : b; }
 
 /// Returns the maximum of two values.
 ///  @param[in]		a	Value A
 ///  @param[in]		b	Value B
 ///  @return The maximum of the two values.
-template<class T> inline T dtMax(T a, T b) { return a > b ? a : b; }
+template<class T> inline constexpr T dtMax(T a, T b) { return a > b ? a : b; }
 
 /// Returns the absolute value.
 ///  @param[in]		a	The value.
 ///  @return The absolute value of the specified value.
-template<class T> inline T dtAbs(T a) { return a < 0 ? -a : a; }
+template<class T> inline constexpr T dtAbs(T a) { return a < 0 ? -a : a; }
 
 /// Returns the square of the value.
 ///  @param[in]		a	The value.
 ///  @return The square of the value.
-template<class T> inline T dtSqr(T a) { return a*a; }
+template<class T> inline constexpr T dtSqr(T a) { return a*a; }
 
 /// Clamps the value to the specified range.
 ///  @param[in]		v	The value to clamp.
 ///  @param[in]		mn	The minimum permitted return value.
 ///  @param[in]		mx	The maximum permitted return value.
 ///  @return The value, clamped to the specified range.
-template<class T> inline T dtClamp(T v, T mn, T mx) { return v < mn ? mn : (v > mx ? mx : v); }
+template<class T> inline constexpr T dtClamp(T v, T mn, T mx) { return v < mn ? mn : (v > mx ? mx : v); }
 
 /// @}
 /// @name Computational geometry helper functions.
@@ -100,7 +100,7 @@ inline float dtTriArea2D(const Vec3& a, const Vec3& b, const Vec3& c)
 ///  @param[in]		bmax	Maximum bounds of box B. [(x, y, z)]
 /// @return True if the two AABB's overlap.
 /// @see dtOverlapBounds
-inline bool dtOverlapQuantBounds(const uint16_t amin[3], const uint16_t amax[3],
+[[nodiscard]] inline bool dtOverlapQuantBounds(const uint16_t amin[3], const uint16_t amax[3],
 								 const uint16_t bmin[3], const uint16_t bmax[3])
 {
 	bool overlap = true;
@@ -117,7 +117,7 @@ inline bool dtOverlapQuantBounds(const uint16_t amin[3], const uint16_t amax[3],
 ///  @param[in]		bmax	Maximum bounds of box B. [(x, y, z)]
 /// @return True if the two AABB's overlap.
 /// @see dtOverlapQuantBounds
-inline bool dtOverlapBounds(const Vec3& amin, const Vec3& amax,
+[[nodiscard]] inline bool dtOverlapBounds(const Vec3& amin, const Vec3& amax,
 							const Vec3& bmin, const Vec3& bmax)
 {
 	bool overlap = true;
@@ -141,14 +141,14 @@ Vec3 dtClosestPtPointTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const
 ///  @param[in]		b		Vertex B of triangle ABC. [(x, y, z)]
 ///  @param[in]		c		Vertex C of triangle ABC. [(x, y, z)]
 ///  @param[out]	h		The resulting height.
-bool dtClosestHeightPointTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c, float& h);
+[[nodiscard]] bool dtClosestHeightPointTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c, float& h);
 
-bool dtIntersectSegmentPoly2D(const Vec3& p0, const Vec3& p1,
+[[nodiscard]] bool dtIntersectSegmentPoly2D(const Vec3& p0, const Vec3& p1,
 							  const Vec3* verts, int nverts,
 							  float& tmin, float& tmax,
 							  int& segMin, int& segMax);
 
-bool dtIntersectSegSeg2D(const Vec3& ap, const Vec3& aq,
+[[nodiscard]] bool dtIntersectSegSeg2D(const Vec3& ap, const Vec3& aq,
 						 const Vec3& bp, const Vec3& bq,
 						 float& s, float& t);
 
@@ -157,9 +157,9 @@ bool dtIntersectSegSeg2D(const Vec3& ap, const Vec3& aq,
 ///  @param[in]		verts	The polygon vertices. [(x, y, z) * @p nverts]
 ///  @param[in]		nverts	The number of vertices. [Limit: >= 3]
 /// @return True if the point is inside the polygon.
-bool dtPointInPolygon(const Vec3& pt, const Vec3* verts, const int nverts);
+[[nodiscard]] bool dtPointInPolygon(const Vec3& pt, const Vec3* verts, const int nverts);
 
-bool dtDistancePtPolyEdgesSqr(const Vec3& pt, const Vec3* verts, const int nverts,
+[[nodiscard]] bool dtDistancePtPolyEdgesSqr(const Vec3& pt, const Vec3* verts, const int nverts,
 							float* ed, float* et);
 
 float dtDistancePtSegSqr2D(const Vec3& pt, const Vec3& p, const Vec3& q, float& t);
@@ -177,7 +177,7 @@ Vec3 dtCalcPolyCenter(const uint16_t* idx, int nidx, const Vec3* verts);
 ///  @param[in]		polyb		Polygon B vertices.	[(x, y, z) * @p npolyb]
 ///  @param[in]		npolyb		The number of vertices in polygon B.
 /// @return True if the two polygons overlap.
-bool dtOverlapPolyPoly2D(const Vec3* polya, const int npolya,
+[[nodiscard]] bool dtOverlapPolyPoly2D(const Vec3* polya, const int npolya,
 						 const Vec3* polyb, const int npolyb);
 
 /// @}
@@ -208,9 +208,9 @@ inline uint32_t dtIlog2(uint32_t v)
 	return r;
 }
 
-inline int dtAlign4(int x) { return (x+3) & ~3; }
+constexpr inline int dtAlign4(int x) { return (x+3) & ~3; }
 
-inline int dtOppositeTile(int side) { return (side+4) & 0x7; }
+constexpr inline int dtOppositeTile(int side) { return (side+4) & 0x7; }
 
 inline void dtSwapByte(uint8_t* a, uint8_t* b)
 {

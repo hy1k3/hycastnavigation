@@ -112,17 +112,17 @@ struct dtNavMeshCreateParams
 ///  @param[out]	outData		The resulting tile data.
 ///  @param[out]	outDataSize	The size of the tile data array.
 /// @return True if the tile data was successfully created.
-bool dtCreateNavMeshData(dtNavMeshCreateParams* params, uint8_t** outData, int* outDataSize);
+[[nodiscard]] bool dtCreateNavMeshData(dtNavMeshCreateParams* params, uint8_t** outData, int* outDataSize);
 
 /// Swaps the endianness of the tile data's header (#dtMeshHeader).
 ///  @param[in,out]	data		The tile data array.
 ///  @param[in]		dataSize	The size of the data array.
-bool dtNavMeshHeaderSwapEndian(uint8_t* data, const int dataSize);
+[[nodiscard]] bool dtNavMeshHeaderSwapEndian(uint8_t* data, const int dataSize);
 
 /// Swaps endianness of the tile data.
 ///  @param[in,out]	data		The tile data array.
 ///  @param[in]		dataSize	The size of the data array.
-bool dtNavMeshDataSwapEndian(uint8_t* data, const int dataSize);
+[[nodiscard]] bool dtNavMeshDataSwapEndian(uint8_t* data, const int dataSize);
 
 
 // This section contains detailed documentation for members that don't have

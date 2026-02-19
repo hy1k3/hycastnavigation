@@ -191,7 +191,7 @@ TEST_CASE("rcVector", "[recast, alloc]")
 
 		// Don't crash.
 		vec.push_back(vec[0]);
-		rcAllocSetCustom(NULL, NULL);
+		rcAllocSetCustom(nullptr, nullptr);
 	}
 
 	SECTION("Vector Destructor")

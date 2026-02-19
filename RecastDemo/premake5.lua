@@ -54,7 +54,7 @@ workspace "recastnavigation"
 local function libproject(name, dependencies)
 	project(name)
 		language "C++"
-		cppdialect "C++11"
+		cppdialect "C++20"
 		kind "StaticLib"
 
 		warnings "Extra"

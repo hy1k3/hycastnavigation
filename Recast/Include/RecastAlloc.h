@@ -128,7 +128,7 @@ class rcVectorBase
 	void assign(rcSizeType count, const T& value) { clear(); resize(count, value); }
 	void assign(const T* begin, const T* end);
 
-	void resize(rcSizeType size) { resize_impl(size, NULL); }
+	void resize(rcSizeType size) { resize_impl(size, nullptr); }
 	void resize(rcSizeType size, const T& value) { resize_impl(size, &value); }
 	// Not implemented as resize(0) because resize requires T to be default-constructible.
 	void clear() { destroy_range(0, m_size); m_size = 0; }

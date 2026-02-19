@@ -40,12 +40,12 @@ void rcFilterLowHangingWalkableObstacles(rcContext* context, const int walkableC
 	{
 		for (int x = 0; x < xSize; ++x)
 		{
-			rcSpan* previousSpan = NULL;
+			rcSpan* previousSpan = nullptr;
 			bool previousWasWalkable = false;
 			uint8_t previousAreaID = RC_NULL_AREA;
 
 			// For each span in the column...
-			for (rcSpan* span = heightfield.spans[x + z * xSize]; span != NULL; previousSpan = span, span = span->next)
+			for (rcSpan* span = heightfield.spans[x + z * xSize]; span != nullptr; previousSpan = span, span = span->next)
 			{
 				const bool walkable = span->area != RC_NULL_AREA;
 
@@ -125,7 +125,7 @@ void rcFilterLedgeSpans(rcContext* context, const int walkableHeight, const int 
 					}
 
 					// For each span in the neighboring column...
-					for (; neighborSpan != NULL; neighborSpan = neighborSpan->next)
+					for (; neighborSpan != nullptr; neighborSpan = neighborSpan->next)
 					{
 						const int neighborFloor = (int)neighborSpan->smax;
 						neighborCeiling = neighborSpan->next ? (int)neighborSpan->next->smin : MAX_HEIGHTFIELD_HEIGHT;

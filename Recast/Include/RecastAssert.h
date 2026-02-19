@@ -40,7 +40,7 @@ rcAssertFailFunc* rcAssertFailGetCustom();
 #	define rcAssert(expression) \
 		{ \
 			rcAssertFailFunc* failFunc = rcAssertFailGetCustom(); \
-			if (failFunc == NULL) { assert(expression); } \
+			if (failFunc == nullptr) { assert(expression); } \
 			else if (!(expression)) { (*failFunc)(#expression, __FILE__, __LINE__); } \
 		}
 #endif // !defined(RC_DISABLE_ASSERTS)

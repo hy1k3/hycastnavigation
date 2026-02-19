@@ -329,7 +329,7 @@ int main(int /*argc*/, char** /*argv*/)
 		app.rayEnd[2] = static_cast<float>(z);
 
 		// Keyboard movement.
-		const bool* keystate = SDL_GetKeyboardState(NULL);
+		const bool* keystate = SDL_GetKeyboardState(nullptr);
 		app.moveFront = rcClamp(app.moveFront + dt * 4 * ((keystate[SDL_SCANCODE_W] || keystate[SDL_SCANCODE_UP]) ? 1.0f : -1.0f), 0.0f, 1.0f);
 		app.moveLeft = rcClamp(app.moveLeft + dt * 4 * ((keystate[SDL_SCANCODE_A] || keystate[SDL_SCANCODE_LEFT]) ? 1.0f : -1.0f), 0.0f, 1.0f);
 		app.moveBack = rcClamp(app.moveBack + dt * 4 * ((keystate[SDL_SCANCODE_S] || keystate[SDL_SCANCODE_DOWN]) ? 1.0f : -1.0f), 0.0f, 1.0f);

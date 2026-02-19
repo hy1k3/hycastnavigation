@@ -7,7 +7,7 @@ set_target_properties(DebugUtils PROPERTIES
     VERSION ${LIB_VERSION}
     COMPILE_PDB_OUTPUT_DIRECTORY .
     COMPILE_PDB_NAME "DebugUtils-d"
-    CXX_STANDARD 11
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF  # Disable compiler-specific extensions
 )

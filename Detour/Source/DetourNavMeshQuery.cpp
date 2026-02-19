@@ -302,7 +302,7 @@ dtStatus dtNavMeshQuery::findRandomPoint(const dtQueryFilter* filter, float (*fr
 	Vec3 pt = dtRandomPointInConvexPoly(verts, poly->vertCount, areas, s, t);
 
 	Vec3 closest;
-	closestPointOnPoly(polyRef, pt, closest, NULL);
+	closestPointOnPoly(polyRef, pt, closest, nullptr);
 
 	randomPt = closest;
 	*randomRef = polyRef;
@@ -480,7 +480,7 @@ dtStatus dtNavMeshQuery::findRandomPointAroundCircle(dtPolyRef startRef, const V
 	Vec3 pt = dtRandomPointInConvexPoly(verts, randomPoly->vertCount, areas, s, t);
 
 	Vec3 closest;
-	closestPointOnPoly(randomPolyRef, pt, closest, NULL);
+	closestPointOnPoly(randomPolyRef, pt, closest, nullptr);
 
 	randomPt = closest;
 	*randomRef = randomPolyRef;
@@ -683,7 +683,7 @@ dtStatus dtNavMeshQuery::findNearestPoly(const Vec3& center, const Vec3& halfExt
 										 const dtQueryFilter* filter,
 										 dtPolyRef* nearestRef, Vec3* nearestPt) const
 {
-	return findNearestPoly(center, halfExtents, filter, nearestRef, nearestPt, NULL);
+	return findNearestPoly(center, halfExtents, filter, nearestRef, nearestPt, nullptr);
 }
 
 // If center and nearestPt point to an equal position, isOverPoly will be true;

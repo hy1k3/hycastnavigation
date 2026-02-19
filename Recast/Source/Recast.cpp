@@ -265,7 +265,7 @@ rcPolyMeshDetail* rcAllocPolyMeshDetail()
 
 void rcFreePolyMeshDetail(rcPolyMeshDetail* detailMesh)
 {
-	if (detailMesh == NULL)
+	if (detailMesh == nullptr)
 	{
 		return;
 	}
@@ -386,7 +386,7 @@ int rcGetHeightFieldSpanCount(rcContext* context, const rcHeightfield& heightfie
 	int spanCount = 0;
 	for (int columnIndex = 0; columnIndex < numCols; ++columnIndex)
 	{
-		for (rcSpan* span = heightfield.spans[columnIndex]; span != NULL; span = span->next)
+		for (rcSpan* span = heightfield.spans[columnIndex]; span != nullptr; span = span->next)
 		{
 			if (span->area != RC_NULL_AREA)
 			{
@@ -452,7 +452,7 @@ bool rcBuildCompactHeightfield(rcContext* context, const int walkableHeight, con
 		const rcSpan* span = heightfield.spans[columnIndex];
 			
 		// If there are no spans at this cell, just leave the data to index=0, count=0.
-		if (span == NULL)
+		if (span == nullptr)
 		{
 			continue;
 		}
@@ -461,7 +461,7 @@ bool rcBuildCompactHeightfield(rcContext* context, const int walkableHeight, con
 		cell.index = currentCellIndex;
 		cell.count = 0;
 
-		for (; span != NULL; span = span->next)
+		for (; span != nullptr; span = span->next)
 		{
 			if (span->area != RC_NULL_AREA)
 			{
