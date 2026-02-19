@@ -330,7 +330,39 @@ bool rcCreateHeightfield(rcContext* context, rcHeightfield& heightfield, int siz
 	return true;
 }
 
-void rcMarkWalkableTriangles(rcContext* context, const TriChunk& chunk, const int numTris,
+void rcComputeNormals(const TriChunk& chunk, const int numTris, NormalChunk& normals)
+{
+	int i = 0;
+
+#ifdef RC_USE_SSE2
+	for (; i + 4 <= numTris; i += 4)
+	{
+		const __m128 ax = _mm_loadu_ps(chunk.v0x + i), ay = _mm_loadu_ps(chunk.v0y + i), az = _mm_loadu_ps(chunk.v0z + i);
+		const __m128 bx = _mm_loadu_ps(chunk.v1x + i), by = _mm_loadu_ps(chunk.v1y + i), bz = _mm_loadu_ps(chunk.v1z + i);
+		const __m128 cx = _mm_loadu_ps(chunk.v2x + i), cy = _mm_loadu_ps(chunk.v2y + i), cz = _mm_loadu_ps(chunk.v2z + i);
+
+		const __m128 e0x = _mm_sub_ps(bx, ax), e0y = _mm_sub_ps(by, ay), e0z = _mm_sub_ps(bz, az);
+		const __m128 e1x = _mm_sub_ps(cx, ax), e1y = _mm_sub_ps(cy, ay), e1z = _mm_sub_ps(cz, az);
+
+		_mm_storeu_ps(normals.nx + i, _mm_sub_ps(_mm_mul_ps(e0y, e1z), _mm_mul_ps(e0z, e1y)));
+		_mm_storeu_ps(normals.ny + i, _mm_sub_ps(_mm_mul_ps(e0z, e1x), _mm_mul_ps(e0x, e1z)));
+		_mm_storeu_ps(normals.nz + i, _mm_sub_ps(_mm_mul_ps(e0x, e1y), _mm_mul_ps(e0y, e1x)));
+	}
+#endif
+
+	for (; i < numTris; ++i)
+	{
+		const Vec3 a(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]);
+		const Vec3 b(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]);
+		const Vec3 c(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]);
+		const Vec3 n = (b - a).cross(c - a);
+		normals.nx[i] = n.x;
+		normals.ny[i] = n.y;
+		normals.nz[i] = n.z;
+	}
+}
+
+void rcMarkWalkableTriangles(rcContext* context, const NormalChunk& normals, const int numTris,
                              const float walkableSlopeAngle, uint8_t* triAreaIDs)
 {
 	rcIgnoreUnused(context);
@@ -347,18 +379,9 @@ void rcMarkWalkableTriangles(rcContext* context, const TriChunk& chunk, const in
 
 	for (; i + 4 <= numTris; i += 4)
 	{
-		const __m128 ax = _mm_loadu_ps(chunk.v0x + i), ay = _mm_loadu_ps(chunk.v0y + i), az = _mm_loadu_ps(chunk.v0z + i);
-		const __m128 bx = _mm_loadu_ps(chunk.v1x + i), by = _mm_loadu_ps(chunk.v1y + i), bz = _mm_loadu_ps(chunk.v1z + i);
-		const __m128 cx = _mm_loadu_ps(chunk.v2x + i), cy = _mm_loadu_ps(chunk.v2y + i), cz = _mm_loadu_ps(chunk.v2z + i);
-
-		// Edge vectors e0 = b-a, e1 = c-a
-		const __m128 e0x = _mm_sub_ps(bx, ax), e0y = _mm_sub_ps(by, ay), e0z = _mm_sub_ps(bz, az);
-		const __m128 e1x = _mm_sub_ps(cx, ax), e1y = _mm_sub_ps(cy, ay), e1z = _mm_sub_ps(cz, az);
-
-		// Cross product n = e0 x e1
-		const __m128 nx = _mm_sub_ps(_mm_mul_ps(e0y, e1z), _mm_mul_ps(e0z, e1y));
-		const __m128 ny = _mm_sub_ps(_mm_mul_ps(e0z, e1x), _mm_mul_ps(e0x, e1z));
-		const __m128 nz = _mm_sub_ps(_mm_mul_ps(e0x, e1y), _mm_mul_ps(e0y, e1x));
+		const __m128 nx = _mm_loadu_ps(normals.nx + i);
+		const __m128 ny = _mm_loadu_ps(normals.ny + i);
+		const __m128 nz = _mm_loadu_ps(normals.nz + i);
 
 		const __m128 lenSq = _mm_add_ps(_mm_add_ps(_mm_mul_ps(nx, nx), _mm_mul_ps(ny, ny)), _mm_mul_ps(nz, nz));
 
@@ -384,11 +407,8 @@ void rcMarkWalkableTriangles(rcContext* context, const TriChunk& chunk, const in
 
 	for (; i < numTris; ++i)
 	{
-		const Vec3 a(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]);
-		const Vec3 b(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]);
-		const Vec3 c(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]);
-		const Vec3 n = (b - a).cross(c - a);
-		if (n.y > 0.0f && n.y * n.y > thr2 * n.dot(n))
+		const float nx = normals.nx[i], ny = normals.ny[i], nz = normals.nz[i];
+		if (ny > 0.0f && ny * ny > thr2 * (nx * nx + ny * ny + nz * nz))
 			triAreaIDs[i] |= RC_WALKABLE_AREA;
 	}
 }

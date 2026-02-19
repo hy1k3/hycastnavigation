@@ -449,33 +449,39 @@ TEST_CASE("rcMarkWalkableTriangles", "[recast]")
 
 	TriChunk walkable_chunk;
 	walkable_chunk.set(0, verts[0], verts[1], verts[2]);
+	NormalChunk walkable_normals;
+	rcComputeNormals(walkable_chunk, 1, walkable_normals);
 
 	TriChunk unwalkable_chunk;
 	unwalkable_chunk.set(0, verts[0], verts[2], verts[1]);
+	NormalChunk unwalkable_normals;
+	rcComputeNormals(unwalkable_chunk, 1, unwalkable_normals);
 
 	SECTION("One walkable triangle")
 	{
-		rcMarkWalkableTriangles(ctx, walkable_chunk, 1, walkableSlopeAngle, areas);
+		rcMarkWalkableTriangles(ctx, walkable_normals, 1, walkableSlopeAngle, areas);
 		REQUIRE(areas[0] == RC_WALKABLE_AREA);
 	}
 
 	SECTION("One non-walkable triangle")
 	{
-		rcMarkWalkableTriangles(ctx, unwalkable_chunk, 1, walkableSlopeAngle, areas);
+		rcMarkWalkableTriangles(ctx, unwalkable_normals, 1, walkableSlopeAngle, areas);
 		REQUIRE(areas[0] == RC_NULL_AREA);
 	}
 
 	SECTION("Non-walkable triangle area id's are not modified")
 	{
 		areas[0] = 42;
-		rcMarkWalkableTriangles(ctx, unwalkable_chunk, 1, walkableSlopeAngle, areas);
+		rcMarkWalkableTriangles(ctx, unwalkable_normals, 1, walkableSlopeAngle, areas);
 		REQUIRE(areas[0] == 42);
 	}
 
 	SECTION("Slopes equal to the max slope are considered unwalkable.")
 	{
 		walkableSlopeAngle = 0;
-		rcMarkWalkableTriangles(ctx, walkable_chunk, 1, walkableSlopeAngle, areas);
+		NormalChunk flat_normals;
+		rcComputeNormals(walkable_chunk, 1, flat_normals);
+		rcMarkWalkableTriangles(ctx, flat_normals, 1, walkableSlopeAngle, areas);
 		REQUIRE(areas[0] == RC_NULL_AREA);
 	}
 }

@@ -737,7 +737,7 @@ static constexpr int RC_SOA_CHUNK = 256;
 /// Triangle vertex data in Structure-of-Arrays layout for up to RC_SOA_CHUNK triangles.
 ///
 /// Build a TriChunk by calling set() for each triangle index, then pass it to
-/// rcMarkWalkableTriangles and rcRasterizeTriangles.  Chunk at most RC_SOA_CHUNK triangles at a time.
+/// rcComputeNormals and rcRasterizeTriangles.  Chunk at most RC_SOA_CHUNK triangles at a time.
 struct TriChunk
 {
     float v0x[RC_SOA_CHUNK], v0y[RC_SOA_CHUNK], v0z[RC_SOA_CHUNK];
@@ -752,6 +752,23 @@ struct TriChunk
     }
 };
 
+/// Unnormalized face normals in Structure-of-Arrays layout for up to RC_SOA_CHUNK triangles.
+///
+/// Populated by rcComputeNormals.  The normals are cross products (not unit vectors),
+/// which is sufficient for slope tests and can be reused by rasterization.
+struct NormalChunk
+{
+    float nx[RC_SOA_CHUNK], ny[RC_SOA_CHUNK], nz[RC_SOA_CHUNK];
+};
+
+/// Computes unnormalized face normals (cross products) for triangles in a TriChunk.
+///
+/// @ingroup recast
+/// @param[in]	chunk		Triangle data in SoA layout.
+/// @param[in]	numTris		The number of valid triangles. [Limit: <= RC_SOA_CHUNK]
+/// @param[out]	normals		Output normals in SoA layout.
+void rcComputeNormals(const TriChunk& chunk, int numTris, NormalChunk& normals);
+
 /// Sets the area id of all triangles with a slope below the specified value
 /// to #RC_WALKABLE_AREA.
 ///
@@ -761,15 +778,15 @@ struct TriChunk
 /// See the #rcConfig documentation for more information on the configuration parameters.
 ///
 /// @see rcHeightfield, rcRasterizeTriangles
-/// 
+///
 /// @ingroup recast
 /// @param[in,out]	context				The build context to use during the operation.
-/// @param[in]		chunk				Triangle data in SoA layout.
-/// @param[in]		numTris				The number of valid triangles in @p chunk. [Limit: <= RC_SOA_CHUNK]
+/// @param[in]		normals				Precomputed face normals (from rcComputeNormals).
+/// @param[in]		numTris				The number of valid triangles. [Limit: <= RC_SOA_CHUNK]
 /// @param[in]		walkableSlopeAngle	The maximum slope that is considered walkable.
 /// 									[Limits: 0 <= value < 90] [Units: Degrees]
 /// @param[out]		triAreaIDs			The triangle area ids. [Length: >= @p numTris]
-void rcMarkWalkableTriangles(rcContext* context, const TriChunk& chunk, int numTris,
+void rcMarkWalkableTriangles(rcContext* context, const NormalChunk& normals, int numTris,
                              float walkableSlopeAngle, uint8_t* triAreaIDs);
 
 
