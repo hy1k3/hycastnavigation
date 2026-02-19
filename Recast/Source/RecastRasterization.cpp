@@ -331,14 +331,8 @@ static bool rasterizeTri(const Vec3& v0, const Vec3& v1, const Vec3& v2,
                          const int flagMergeThreshold)
 {
 	// Calculate the bounding box of the triangle.
-	Vec3 triBBMin = vmin(vmin(v0, v1), v2);
-	Vec3 triBBMax = vmax(vmax(v0, v1), v2);
-
-	// If the triangle does not touch the bounding box of the heightfield, skip the triangle.
-	if (!overlapBounds(triBBMin, triBBMax, heightfieldBBMin, heightfieldBBMax))
-	{
-		return true;
-	}
+	const Vec3 triBBMin = vmin(vmin(v0, v1), v2);
+	const Vec3 triBBMax = vmax(vmax(v0, v1), v2);
 
 	const int w = heightfield.width;
 	const int h = heightfield.height;
@@ -528,6 +522,10 @@ static bool rasterizeSOA(
 
     for (; i < numTris; ++i)
     {
+        const Vec3 triMin = vmin(vmin(Vec3(v0x[i], v0y[i], v0z[i]), Vec3(v1x[i], v1y[i], v1z[i])), Vec3(v2x[i], v2y[i], v2z[i]));
+        const Vec3 triMax = vmax(vmax(Vec3(v0x[i], v0y[i], v0z[i]), Vec3(v1x[i], v1y[i], v1z[i])), Vec3(v2x[i], v2y[i], v2z[i]));
+        if (!overlapBounds(triMin, triMax, hfMin, hfMax))
+            continue;
         if (!rasterizeTri(Vec3(v0x[i], v0y[i], v0z[i]),
                           Vec3(v1x[i], v1y[i], v1z[i]),
                           Vec3(v2x[i], v2y[i], v2z[i]),
@@ -536,6 +534,30 @@ static bool rasterizeSOA(
             return false;
     }
     return true;
+}
+
+bool rcRasterizeTriangle(rcContext* context,
+                         const Vec3& v0, const Vec3& v1, const Vec3& v2,
+                         const uint8_t areaID, rcHeightfield& heightfield, const int flagMergeThreshold)
+{
+	rcAssert(context != nullptr);
+
+	rcScopedTimer timer(context, RC_TIMER_RASTERIZE_TRIANGLES);
+
+	const float inverseCellSize = 1.0f / heightfield.cs;
+	const float inverseCellHeight = 1.0f / heightfield.ch;
+	if (!rasterizeSOA(
+	        &v0.x, &v0.y, &v0.z,
+	        &v1.x, &v1.y, &v1.z,
+	        &v2.x, &v2.y, &v2.z,
+	        &areaID, 1, heightfield,
+	        inverseCellSize, inverseCellHeight, flagMergeThreshold))
+	{
+		context->log(RC_LOG_ERROR, "rcRasterizeTriangle: Out of memory.");
+		return false;
+	}
+
+	return true;
 }
 
 bool rcRasterizeTriangles(rcContext* context,
