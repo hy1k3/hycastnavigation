@@ -22,6 +22,21 @@
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
 
+#if defined(__SSE2__) || defined(_M_X64) || \
+    (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+#  define RC_USE_SSE2 1
+#  include <immintrin.h>
+#  if defined(_MSC_VER)
+#    include <intrin.h>
+static int rcCtz32(unsigned x) { unsigned long i; _BitScanForward(&i, x); return (int)i; }
+#  else
+static int rcCtz32(unsigned x) { return __builtin_ctz(x); }
+#  endif
+#endif
+
+/// Number of triangles gathered into SoA per chunk.
+static constexpr int RC_SOA_CHUNK = 256;
+
 /// Check whether two bounding boxes overlap
 ///
 /// @param[in]	aMin	Min axis extents of bounding box A
@@ -453,24 +468,74 @@ static bool rasterizeTri(const Vec3& v0, const Vec3& v1, const Vec3& v2,
 	return true;
 }
 
-bool rcRasterizeTriangle(rcContext* context,
-                         const Vec3& v0, const Vec3& v1, const Vec3& v2,
-                         const uint8_t areaID, rcHeightfield& heightfield, const int flagMergeThreshold)
+/// Rasterize triangles already in SoA layout, SIMD-culling 4 at a time.
+/// Returns false only on span allocation failure.
+static bool rasterizeSOA(
+    const float* v0x, const float* v0y, const float* v0z,
+    const float* v1x, const float* v1y, const float* v1z,
+    const float* v2x, const float* v2y, const float* v2z,
+    const uint8_t* areaIDs, const int numTris,
+    rcHeightfield& hf,
+    const float inverseCellSize, const float inverseCellHeight,
+    const int flagMergeThreshold)
 {
-	rcAssert(context != nullptr);
+    const Vec3& hfMin = hf.bmin;
+    const Vec3& hfMax = hf.bmax;
 
-	rcScopedTimer timer(context, RC_TIMER_RASTERIZE_TRIANGLES);
+    int i = 0;
 
-	// Rasterize the single triangle.
-	const float inverseCellSize = 1.0f / heightfield.cs;
-	const float inverseCellHeight = 1.0f / heightfield.ch;
-	if (!rasterizeTri(v0, v1, v2, areaID, heightfield, heightfield.bmin, heightfield.bmax, heightfield.cs, inverseCellSize, inverseCellHeight, flagMergeThreshold))
-	{
-		context->log(RC_LOG_ERROR, "rcRasterizeTriangle: Out of memory.");
-		return false;
-	}
+#ifdef RC_USE_SSE2
+    const __m128 bbMinX = _mm_set1_ps(hfMin.x);
+    const __m128 bbMinY = _mm_set1_ps(hfMin.y);
+    const __m128 bbMinZ = _mm_set1_ps(hfMin.z);
+    const __m128 bbMaxX = _mm_set1_ps(hfMax.x);
+    const __m128 bbMaxY = _mm_set1_ps(hfMax.y);
+    const __m128 bbMaxZ = _mm_set1_ps(hfMax.z);
 
-	return true;
+    for (; i + 4 <= numTris; i += 4)
+    {
+        const __m128 ax = _mm_loadu_ps(v0x + i), ay = _mm_loadu_ps(v0y + i), az = _mm_loadu_ps(v0z + i);
+        const __m128 bx = _mm_loadu_ps(v1x + i), by = _mm_loadu_ps(v1y + i), bz = _mm_loadu_ps(v1z + i);
+        const __m128 cx = _mm_loadu_ps(v2x + i), cy = _mm_loadu_ps(v2y + i), cz = _mm_loadu_ps(v2z + i);
+
+        // Compute per-triangle AABB across all three vertices.
+        const __m128 triMinX = _mm_min_ps(_mm_min_ps(ax, bx), cx);
+        const __m128 triMinY = _mm_min_ps(_mm_min_ps(ay, by), cy);
+        const __m128 triMinZ = _mm_min_ps(_mm_min_ps(az, bz), cz);
+        const __m128 triMaxX = _mm_max_ps(_mm_max_ps(ax, bx), cx);
+        const __m128 triMaxY = _mm_max_ps(_mm_max_ps(ay, by), cy);
+        const __m128 triMaxZ = _mm_max_ps(_mm_max_ps(az, bz), cz);
+
+        // Overlap test: triMin <= hfMax && triMax >= hfMin on all axes.
+        const __m128 okX = _mm_and_ps(_mm_cmple_ps(triMinX, bbMaxX), _mm_cmpge_ps(triMaxX, bbMinX));
+        const __m128 okY = _mm_and_ps(_mm_cmple_ps(triMinY, bbMaxY), _mm_cmpge_ps(triMaxY, bbMinY));
+        const __m128 okZ = _mm_and_ps(_mm_cmple_ps(triMinZ, bbMaxZ), _mm_cmpge_ps(triMaxZ, bbMinZ));
+        unsigned mask = (unsigned)_mm_movemask_ps(_mm_and_ps(_mm_and_ps(okX, okY), okZ));
+
+        while (mask)
+        {
+            const int j = rcCtz32(mask);
+            if (!rasterizeTri(Vec3(v0x[i+j], v0y[i+j], v0z[i+j]),
+                              Vec3(v1x[i+j], v1y[i+j], v1z[i+j]),
+                              Vec3(v2x[i+j], v2y[i+j], v2z[i+j]),
+                              areaIDs[i+j], hf, hfMin, hfMax,
+                              hf.cs, inverseCellSize, inverseCellHeight, flagMergeThreshold))
+                return false;
+            mask &= mask - 1;
+        }
+    }
+#endif
+
+    for (; i < numTris; ++i)
+    {
+        if (!rasterizeTri(Vec3(v0x[i], v0y[i], v0z[i]),
+                          Vec3(v1x[i], v1y[i], v1z[i]),
+                          Vec3(v2x[i], v2y[i], v2z[i]),
+                          areaIDs[i], hf, hfMin, hfMax,
+                          hf.cs, inverseCellSize, inverseCellHeight, flagMergeThreshold))
+            return false;
+    }
+    return true;
 }
 
 bool rcRasterizeTriangles(rcContext* context,
@@ -482,15 +547,31 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	rcScopedTimer timer(context, RC_TIMER_RASTERIZE_TRIANGLES);
 
-	// Rasterize the triangles.
-	const float inverseCellSize = 1.0f / heightfield.cs;
+	const float inverseCellSize   = 1.0f / heightfield.cs;
 	const float inverseCellHeight = 1.0f / heightfield.ch;
-	for (int triIndex = 0; triIndex < numTris; ++triIndex)
+
+	float v0x[RC_SOA_CHUNK], v0y[RC_SOA_CHUNK], v0z[RC_SOA_CHUNK];
+	float v1x[RC_SOA_CHUNK], v1y[RC_SOA_CHUNK], v1z[RC_SOA_CHUNK];
+	float v2x[RC_SOA_CHUNK], v2y[RC_SOA_CHUNK], v2z[RC_SOA_CHUNK];
+
+	for (int base = 0; base < numTris; base += RC_SOA_CHUNK)
 	{
-		const Vec3& v0 = verts[tris[triIndex * 3 + 0]];
-		const Vec3& v1 = verts[tris[triIndex * 3 + 1]];
-		const Vec3& v2 = verts[tris[triIndex * 3 + 2]];
-		if (!rasterizeTri(v0, v1, v2, triAreaIDs[triIndex], heightfield, heightfield.bmin, heightfield.bmax, heightfield.cs, inverseCellSize, inverseCellHeight, flagMergeThreshold))
+		const int count = rcMin(RC_SOA_CHUNK, numTris - base);
+
+		// Gather: indexed AoS → SoA
+		for (int i = 0; i < count; ++i)
+		{
+			const Vec3& a = verts[tris[(base + i) * 3 + 0]];
+			const Vec3& b = verts[tris[(base + i) * 3 + 1]];
+			const Vec3& c = verts[tris[(base + i) * 3 + 2]];
+			v0x[i] = a.x; v0y[i] = a.y; v0z[i] = a.z;
+			v1x[i] = b.x; v1y[i] = b.y; v1z[i] = b.z;
+			v2x[i] = c.x; v2y[i] = c.y; v2z[i] = c.z;
+		}
+
+		if (!rasterizeSOA(v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z,
+		                  triAreaIDs + base, count, heightfield,
+		                  inverseCellSize, inverseCellHeight, flagMergeThreshold))
 		{
 			context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 			return false;
@@ -509,15 +590,31 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	rcScopedTimer timer(context, RC_TIMER_RASTERIZE_TRIANGLES);
 
-	// Rasterize the triangles.
-	const float inverseCellSize = 1.0f / heightfield.cs;
+	const float inverseCellSize   = 1.0f / heightfield.cs;
 	const float inverseCellHeight = 1.0f / heightfield.ch;
-	for (int triIndex = 0; triIndex < numTris; ++triIndex)
+
+	float v0x[RC_SOA_CHUNK], v0y[RC_SOA_CHUNK], v0z[RC_SOA_CHUNK];
+	float v1x[RC_SOA_CHUNK], v1y[RC_SOA_CHUNK], v1z[RC_SOA_CHUNK];
+	float v2x[RC_SOA_CHUNK], v2y[RC_SOA_CHUNK], v2z[RC_SOA_CHUNK];
+
+	for (int base = 0; base < numTris; base += RC_SOA_CHUNK)
 	{
-		const Vec3& v0 = verts[tris[triIndex * 3 + 0]];
-		const Vec3& v1 = verts[tris[triIndex * 3 + 1]];
-		const Vec3& v2 = verts[tris[triIndex * 3 + 2]];
-		if (!rasterizeTri(v0, v1, v2, triAreaIDs[triIndex], heightfield, heightfield.bmin, heightfield.bmax, heightfield.cs, inverseCellSize, inverseCellHeight, flagMergeThreshold))
+		const int count = rcMin(RC_SOA_CHUNK, numTris - base);
+
+		// Gather: indexed AoS → SoA
+		for (int i = 0; i < count; ++i)
+		{
+			const Vec3& a = verts[tris[(base + i) * 3 + 0]];
+			const Vec3& b = verts[tris[(base + i) * 3 + 1]];
+			const Vec3& c = verts[tris[(base + i) * 3 + 2]];
+			v0x[i] = a.x; v0y[i] = a.y; v0z[i] = a.z;
+			v1x[i] = b.x; v1y[i] = b.y; v1z[i] = b.z;
+			v2x[i] = c.x; v2y[i] = c.y; v2z[i] = c.z;
+		}
+
+		if (!rasterizeSOA(v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z,
+		                  triAreaIDs + base, count, heightfield,
+		                  inverseCellSize, inverseCellHeight, flagMergeThreshold))
 		{
 			context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 			return false;
@@ -535,15 +632,31 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	rcScopedTimer timer(context, RC_TIMER_RASTERIZE_TRIANGLES);
 
-	// Rasterize the triangles.
-	const float inverseCellSize = 1.0f / heightfield.cs;
+	const float inverseCellSize   = 1.0f / heightfield.cs;
 	const float inverseCellHeight = 1.0f / heightfield.ch;
-	for (int triIndex = 0; triIndex < numTris; ++triIndex)
+
+	float v0x[RC_SOA_CHUNK], v0y[RC_SOA_CHUNK], v0z[RC_SOA_CHUNK];
+	float v1x[RC_SOA_CHUNK], v1y[RC_SOA_CHUNK], v1z[RC_SOA_CHUNK];
+	float v2x[RC_SOA_CHUNK], v2y[RC_SOA_CHUNK], v2z[RC_SOA_CHUNK];
+
+	for (int base = 0; base < numTris; base += RC_SOA_CHUNK)
 	{
-		const Vec3& v0 = verts[triIndex * 3 + 0];
-		const Vec3& v1 = verts[triIndex * 3 + 1];
-		const Vec3& v2 = verts[triIndex * 3 + 2];
-		if (!rasterizeTri(v0, v1, v2, triAreaIDs[triIndex], heightfield, heightfield.bmin, heightfield.bmax, heightfield.cs, inverseCellSize, inverseCellHeight, flagMergeThreshold))
+		const int count = rcMin(RC_SOA_CHUNK, numTris - base);
+
+		// Gather: non-indexed triangle soup → SoA
+		for (int i = 0; i < count; ++i)
+		{
+			const Vec3& a = verts[(base + i) * 3 + 0];
+			const Vec3& b = verts[(base + i) * 3 + 1];
+			const Vec3& c = verts[(base + i) * 3 + 2];
+			v0x[i] = a.x; v0y[i] = a.y; v0z[i] = a.z;
+			v1x[i] = b.x; v1y[i] = b.y; v1z[i] = b.z;
+			v2x[i] = c.x; v2y[i] = c.y; v2z[i] = c.z;
+		}
+
+		if (!rasterizeSOA(v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z,
+		                  triAreaIDs + base, count, heightfield,
+		                  inverseCellSize, inverseCellHeight, flagMergeThreshold))
 		{
 			context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 			return false;
