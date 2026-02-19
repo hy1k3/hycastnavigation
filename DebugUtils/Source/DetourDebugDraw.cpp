@@ -540,13 +540,9 @@ void duDebugDrawTileCacheLayerAreas(struct duDebugDraw* dd, const dtTileCacheLay
 	uint32_t color = duIntToCol(idx+1, 255);
 
 	// Layer bounds
-	const float lbminx = bmin.x + layer.header->minx*cs;
-	const float lbminy = bmin.y;
-	const float lbminz = bmin.z + layer.header->miny*cs;
-	const float lbmaxx = bmin.x + (layer.header->maxx+1)*cs;
-	const float lbmaxy = bmax.y;
-	const float lbmaxz = bmin.z + (layer.header->maxy+1)*cs;
-	duDebugDrawBoxWire(dd, lbminx,lbminy,lbminz, lbmaxx,lbmaxy,lbmaxz, duTransCol(color,128), 2.0f);
+	const Vec3 lbmin(bmin.x + layer.header->minx*cs, bmin.y, bmin.z + layer.header->miny*cs);
+	const Vec3 lbmax(bmin.x + (layer.header->maxx+1)*cs, bmax.y, bmin.z + (layer.header->maxy+1)*cs);
+	duDebugDrawBoxWire(dd, lbmin.x,lbmin.y,lbmin.z, lbmax.x,lbmax.y,lbmax.z, duTransCol(color,128), 2.0f);
 
 	// Layer height
 	dd->begin(DU_DRAW_QUADS);
@@ -593,13 +589,9 @@ void duDebugDrawTileCacheLayerRegions(struct duDebugDraw* dd, const dtTileCacheL
 	uint32_t color = duIntToCol(idx+1, 255);
 
 	// Layer bounds
-	const float lbminx = bmin.x + layer.header->minx*cs;
-	const float lbminy = bmin.y;
-	const float lbminz = bmin.z + layer.header->miny*cs;
-	const float lbmaxx = bmin.x + (layer.header->maxx+1)*cs;
-	const float lbmaxy = bmax.y;
-	const float lbmaxz = bmin.z + (layer.header->maxy+1)*cs;
-	duDebugDrawBoxWire(dd, lbminx,lbminy,lbminz, lbmaxx,lbmaxy,lbmaxz, duTransCol(color,128), 2.0f);
+	const Vec3 lbmin(bmin.x + layer.header->minx*cs, bmin.y, bmin.z + layer.header->miny*cs);
+	const Vec3 lbmax(bmin.x + (layer.header->maxx+1)*cs, bmax.y, bmin.z + (layer.header->maxy+1)*cs);
+	duDebugDrawBoxWire(dd, lbmin.x,lbmin.y,lbmin.z, lbmax.x,lbmax.y,lbmax.z, duTransCol(color,128), 2.0f);
 
 	// Layer height
 	dd->begin(DU_DRAW_QUADS);

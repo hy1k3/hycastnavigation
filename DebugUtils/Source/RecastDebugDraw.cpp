@@ -378,13 +378,9 @@ void duDebugDrawHeightfieldLayer(duDebugDraw* dd, const struct rcHeightfieldLaye
 	uint32_t color = duIntToCol(idx+1, 255);
 	
 	// Layer bounds
-	const float lbminx = layer.bmin.x + layer.minx*cs;
-	const float lbminy = layer.bmin.y;
-	const float lbminz = layer.bmin.z + layer.miny*cs;
-	const float lbmaxx = layer.bmin.x + (layer.maxx+1)*cs;
-	const float lbmaxy = layer.bmax.y;
-	const float lbmaxz = layer.bmin.z + (layer.maxy+1)*cs;
-	duDebugDrawBoxWire(dd, lbminx,lbminy,lbminz, lbmaxx,lbmaxy,lbmaxz, duTransCol(color,128), 2.0f);
+	const Vec3 lbmin(layer.bmin.x + layer.minx*cs, layer.bmin.y, layer.bmin.z + layer.miny*cs);
+	const Vec3 lbmax(layer.bmin.x + (layer.maxx+1)*cs, layer.bmax.y, layer.bmin.z + (layer.maxy+1)*cs);
+	duDebugDrawBoxWire(dd, lbmin.x,lbmin.y,lbmin.z, lbmax.x,lbmax.y,lbmax.z, duTransCol(color,128), 2.0f);
 	
 	// Layer height
 	dd->begin(DU_DRAW_QUADS);
