@@ -23,29 +23,19 @@
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
 
-#if defined(__SSE2__) || defined(_M_X64) || \
-    (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
-#  define RC_USE_SSE2 1
-#  include <immintrin.h>
-#  if defined(_MSC_VER)
-#    include <intrin.h>
-static int rcCtz32(unsigned x)           { unsigned long i; _BitScanForward(&i, x);   return (int)i; }
+#if defined(_MSC_VER)
+#  include <intrin.h>
 static int rcCtz64(unsigned long long x) { unsigned long i; _BitScanForward64(&i, x); return (int)i; }
-#  else
-static int rcCtz32(unsigned x)           { return __builtin_ctz(x); }
-static int rcCtz64(unsigned long long x) { return __builtin_ctzll(x); }
-#  endif
 #else
 static int rcCtz64(unsigned long long x) { return __builtin_ctzll(x); }
 #endif
 
 
-
 /// Allocates a new span in the heightfield.
 /// Use a memory pool and free list to minimize actual allocations.
-/// 
+///
 /// @param[in]	heightfield		The heightfield
-/// @returns A pointer to the allocated or re-used span memory. 
+/// @returns A pointer to the allocated or re-used span memory.
 static rcSpan* allocSpan(rcHeightfield& heightfield)
 {
 	// If necessary, allocate new page and update the freelist.
@@ -62,7 +52,7 @@ static rcSpan* allocSpan(rcHeightfield& heightfield)
 		// Add the pool into the list of pools.
 		spanPool->next = heightfield.pools;
 		heightfield.pools = spanPool;
-		
+
 		// Add new spans to the free list.
 		rcSpan* freeList = heightfield.freelist;
 		rcSpan* head = &spanPool->items[0];
@@ -122,11 +112,11 @@ static bool addSpan(rcHeightfield& heightfield,
 	newSpan->smax = max;
 	newSpan->area = areaID;
 	newSpan->next = nullptr;
-	
+
 	const int columnIndex = x + z * heightfield.width;
 	rcSpan* previousSpan = nullptr;
 	rcSpan* currentSpan = heightfield.spans[columnIndex];
-	
+
 	// Insert the new span, possibly merging it with existing spans.
 	while (currentSpan != nullptr)
 	{
@@ -135,7 +125,7 @@ static bool addSpan(rcHeightfield& heightfield,
 			// Current span is completely after the new span, break.
 			break;
 		}
-		
+
 		if (currentSpan->smax < newSpan->smin)
 		{
 			// Current span is completely before the new span.  Keep going.
@@ -153,14 +143,14 @@ static bool addSpan(rcHeightfield& heightfield,
 			{
 				newSpan->smax = currentSpan->smax;
 			}
-			
+
 			// Merge flags.
 			if (rcAbs((int)newSpan->smax - (int)currentSpan->smax) <= flagMergeThreshold)
 			{
 				// Higher area ID numbers indicate higher resolution priority.
 				newSpan->area = rcMax(newSpan->area, currentSpan->area);
 			}
-			
+
 			// Remove the current span since it's now merged with newSpan.
 			// Keep going because there might be other overlapping spans that also need to be merged.
 			rcSpan* next = currentSpan->next;
@@ -176,7 +166,7 @@ static bool addSpan(rcHeightfield& heightfield,
 			currentSpan = next;
 		}
 	}
-	
+
 	// Insert new span after prev
 	if (previousSpan != nullptr)
 	{
@@ -252,53 +242,36 @@ static bool edgeClipY(const Vec3& va, const Vec3& vb,
 }
 
 // ---------------------------------------------------------------------------
-// 64×64×64 block voxelization
+// 64×64×64 block voxelization — bit-per-voxel variant
 //
-// The heightfield is tiled into BLOCK_XZ×BLOCK_XZ XZ tiles.  The full span-
-// height range is sliced into BLOCK_Y chunks.  Each (tile, chunk) combination
-// is processed as a dense 256 KB byte block: triangles write area+1 bytes via
-// element-wise max; the extract pass converts byte runs to linked-list spans.
-// This avoids the pointer-chasing of addSpan during the hot rasterization loop.
+// Triangles are processed one area ID group at a time.  Each group is
+// accumulated into a dense 32 KB bit block (uint64_t[64×64], one 64-bit word
+// per XZ column encoding 64 Y levels).  Fits in L1 cache; no area sentinel
+// bytes needed because the area is known per group.
+//
+// Outer loop: tileZ × tileX × yBase × areaGroup
+//   - memset 32 KB
+//   - voxelize all triangles of the current area → OR bits into block
+//   - scan runs → addSpan with the known area ID
 // ---------------------------------------------------------------------------
 
 static const int BLOCK_XZ = 64;
 static const int BLOCK_Y  = 64;
 
-/// Fill col[yMin..yMax) with element-wise max(col[y], val) using SSE2.
-/// val = areaID+1 so that 0 remains the "empty" sentinel.
-static void fillColumnSIMD(uint8_t* col, const int yMin, const int yMax, const uint8_t val)
-{
-	int y = yMin;
-#ifdef RC_USE_SSE2
-	const __m128i v = _mm_set1_epi8((char)val);
-	for (; y + 16 <= yMax; y += 16)
-	{
-		const __m128i cur = _mm_loadu_si128((const __m128i*)(col + y));
-		_mm_storeu_si128((__m128i*)(col + y), _mm_max_epu8(cur, v));
-	}
-#endif
-	for (; y < yMax; ++y)
-		col[y] = rcMax(col[y], val);
-}
-
-/// Rasterize one triangle into a 64×64×64 voxel block.
+/// Rasterize one triangle into a 64×64 bit block (one uint64_t column per XZ cell).
 ///
 /// The block covers heightfield cells [tileX, tileX+BLOCK_XZ) × [tileZ, tileZ+BLOCK_XZ)
-/// and span indices [yBase, yBase+BLOCK_Y).  Each byte stores areaID+1
-/// (0 = empty); higher value wins when multiple triangles overlap.
+/// and span-height indices [yBase, yBase+BLOCK_Y).  Each bit encodes occupancy;
+/// the area ID is tracked externally per group.
 ///
-/// Uses the same plane-equation + 2D SAT approach as the old rasterizeTri.
-static void voxelizeTriToBlock(uint8_t* block,
-                               const Vec3& v0, const Vec3& v1, const Vec3& v2,
-                               const float nx, const float ny, const float nz,
-                               const uint8_t areaID,
-                               const Vec3& hfMin, const Vec3& hfMax,
-                               const float cs, const float ics, const float ich,
-                               const int tileX, const int tileZ, const int yBase)
+/// Uses the same plane-equation + 2D SAT approach as the original rasterizeTri.
+static void voxelizeTriToBitBlock(uint64_t* block,
+                                  const Vec3& v0, const Vec3& v1, const Vec3& v2,
+                                  const float nx, const float ny, const float nz,
+                                  const Vec3& hfMin, const Vec3& hfMax,
+                                  const float cs, const float ics, const float ich,
+                                  const int tileX, const int tileZ, const int yBase)
 {
-	// Practical area IDs are 0–63; stored as 1–64, no uint8 overflow.
-	const uint8_t stored = (uint8_t)(areaID + 1u);
-
 	const float triMinX = rcMin(rcMin(v0.x, v1.x), v2.x);
 	const float triMaxX = rcMax(rcMax(v0.x, v1.x), v2.x);
 	const float triMinY = rcMin(rcMin(v0.y, v1.y), v2.y);
@@ -327,8 +300,8 @@ static void voxelizeTriToBlock(uint8_t* block,
 	const int z1 = rcMin((int)((triMaxZ - hfMin.z) * ics), tileZ + BLOCK_XZ - 1);
 	if (x0 > x1 || z0 > z1) return;
 
-	// Plane equation and SAT — same as rasterizeTri
-	const float d     = nx * v0.x + ny * v0.y + nz * v0.z;
+	// Plane equation and SAT
+	const float d      = nx * v0.x + ny * v0.y + nz * v0.z;
 	const float inv_ny = (rcAbs(ny) > 1e-6f) ? 1.0f / ny : 0.0f;
 
 	const float a0x = -(v1.z - v0.z), a0z = v1.x - v0.x;
@@ -408,20 +381,26 @@ static void voxelizeTriToBlock(uint8_t* block,
 			const int bMax = rcMin(yMax, yBase + BLOCK_Y);
 			if (bMin >= bMax) continue;
 
-			const int col = (iz - tileZ) * BLOCK_XZ + (ix - tileX);
-			fillColumnSIMD(block + col * BLOCK_Y, bMin - yBase, bMax - yBase, stored);
+			// OR a run of bits [localMin, localMax) into the column word
+			const int localMin = bMin - yBase;
+			const int localMax = bMax - yBase;
+			const int len = localMax - localMin;
+			const uint64_t mask = (len >= 64) ? ~0ULL : ((1ULL << len) - 1) << localMin;
+			block[(iz - tileZ) * BLOCK_XZ + (ix - tileX)] |= mask;
 		}
 	}
 }
 
-/// Scan a filled block and call addSpan for each run of occupied bytes.
+/// Scan a bit block and call addSpan for each run of set bits.
 ///
-/// Each byte stores areaID+1; 0 = empty.  Runs of non-zero bytes map directly
-/// to spans.  SSE2 builds a 64-bit occupancy mask per column in 4 loads.
-static bool extractSpansFromBlock(const uint8_t* block, rcHeightfield& hf,
-                                  const int tileX, const int tileZ,
-                                  const int yBase, const int H,
-                                  const int flagMergeThreshold)
+/// Each uint64_t column word encodes 64 Y levels as bits; the area ID is
+/// supplied by the caller (known per triangle group).  Runs of set bits map
+/// directly to spans; no SIMD needed since the occupancy IS the data.
+static bool extractSpansFromBitBlock(const uint64_t* block, rcHeightfield& hf,
+                                     const int tileX, const int tileZ,
+                                     const int yBase, const int H,
+                                     const uint8_t area,
+                                     const int flagMergeThreshold)
 {
 	for (int dz = 0; dz < BLOCK_XZ; ++dz)
 	{
@@ -433,45 +412,21 @@ static bool extractSpansFromBlock(const uint8_t* block, rcHeightfield& hf,
 			const int ix = tileX + dx;
 			if (ix >= hf.width) break;
 
-			const uint8_t* col = block + (dz * BLOCK_XZ + dx) * BLOCK_Y;
-
-			// Build 64-bit occupancy mask: bit y = 1 if col[y] != 0
-			unsigned long long occ = 0;
-#ifdef RC_USE_SSE2
-			const __m128i zero = _mm_setzero_si128();
-			const __m128i v0v  = _mm_loadu_si128((const __m128i*)(col +  0));
-			const __m128i v1v  = _mm_loadu_si128((const __m128i*)(col + 16));
-			const __m128i v2v  = _mm_loadu_si128((const __m128i*)(col + 32));
-			const __m128i v3v  = _mm_loadu_si128((const __m128i*)(col + 48));
-			// movemask of cmpeq-zero gives 1 for empty bytes; invert for occupied
-			occ  = (unsigned long long)(uint16_t)~_mm_movemask_epi8(_mm_cmpeq_epi8(v0v, zero));
-			occ |= (unsigned long long)(uint16_t)~_mm_movemask_epi8(_mm_cmpeq_epi8(v1v, zero)) << 16;
-			occ |= (unsigned long long)(uint16_t)~_mm_movemask_epi8(_mm_cmpeq_epi8(v2v, zero)) << 32;
-			occ |= (unsigned long long)(uint16_t)~_mm_movemask_epi8(_mm_cmpeq_epi8(v3v, zero)) << 48;
-#else
-			for (int y = 0; y < BLOCK_Y; ++y)
-				if (col[y]) occ |= (1ULL << y);
-#endif
+			// The column word IS the 64-bit occupancy mask — no conversion needed
+			const uint64_t occ = block[dz * BLOCK_XZ + dx];
 			if (!occ) continue;
 
-			// Extract runs from the occupancy mask using bit tricks
+			// Extract runs of set bits using ctz
 			unsigned long long m = occ;
-			int base = 0;  // absolute Y offset within block for current position of m
+			int base = 0;
 			while (m)
 			{
-				const int lo  = rcCtz64(m);          // first set bit = start of run (relative to base)
+				const int lo     = rcCtz64(m);
 				const int abs_lo = base + lo;
 				const unsigned long long from_lo = m >> lo;
-				// Length of the run of 1s starting at bit 0 of from_lo
-				const int run = (from_lo == ~0ULL) ? (BLOCK_Y - abs_lo)
-				                                   : rcCtz64(~from_lo);
+				const int run    = (from_lo == ~0ULL) ? (BLOCK_Y - abs_lo)
+				                                      : rcCtz64(~from_lo);
 				const int abs_hi = abs_lo + run;
-
-				// Area = max stored byte in [abs_lo, abs_hi) minus 1
-				uint8_t maxStored = 0;
-				for (int y = abs_lo; y < abs_hi; ++y)
-					maxStored = rcMax(maxStored, col[y]);
-				const uint8_t area = (uint8_t)(maxStored - 1u);
 
 				const uint16_t smin = (uint16_t)rcMin(yBase + abs_lo, RC_SPAN_MAX_HEIGHT);
 				const uint16_t smax = (uint16_t)rcMin(yBase + abs_hi, RC_SPAN_MAX_HEIGHT);
@@ -481,7 +436,6 @@ static bool extractSpansFromBlock(const uint8_t* block, rcHeightfield& hf,
 						return false;
 				}
 
-				// Advance past this run
 				if (lo + run >= 64) { m = 0; break; }
 				m >>= lo + run;
 				base = abs_hi;
@@ -490,6 +444,7 @@ static bool extractSpansFromBlock(const uint8_t* block, rcHeightfield& hf,
 	}
 	return true;
 }
+
 bool rcRasterizeTriangles(rcContext* context,
                           const TriChunk& chunk, const NormalChunk& normals,
                           const int numTris, const uint8_t* triAreaIDs,
@@ -509,11 +464,22 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	// Total span-height range, clamped to the maximum representable index.
 	// At least 1 so the Y-chunk loop runs even for flat (zero-height) heightfields;
-	// spans still get a minimum height of 1 via the yMax clamp in voxelizeTriToBlock.
+	// spans still get a minimum height of 1 via the yMax clamp in voxelizeTriToBitBlock.
 	const int H = rcMax(rcMin((int)ceilf((hfMax.y - hfMin.y) * ich), RC_SPAN_MAX_HEIGHT), 1);
 
-	// Heap-allocate the 256 KB block to avoid stack overflow.
-	uint8_t* const block = (uint8_t*)rcAlloc(BLOCK_XZ * BLOCK_XZ * BLOCK_Y, RC_ALLOC_TEMP);
+	// Collect distinct area IDs present in this batch.
+	bool seen[256] = {};
+	uint8_t distinctAreas[256];
+	int numDistinct = 0;
+	for (int i = 0; i < numTris; ++i)
+	{
+		const uint8_t a = triAreaIDs[i];
+		if (!seen[a]) { seen[a] = true; distinctAreas[numDistinct++] = a; }
+	}
+
+	// Heap-allocate the 32 KB bit block (uint64_t per XZ column, 64 Y levels per word).
+	const int blockBytes = BLOCK_XZ * BLOCK_XZ * (int)sizeof(uint64_t);
+	uint64_t* const block = (uint64_t*)rcAlloc(blockBytes, RC_ALLOC_TEMP);
 	if (!block)
 	{
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
@@ -526,26 +492,32 @@ bool rcRasterizeTriangles(rcContext* context,
 		{
 			for (int yBase = 0; yBase < H; yBase += BLOCK_Y)
 			{
-				memset(block, 0, BLOCK_XZ * BLOCK_XZ * BLOCK_Y);
-
-				for (int i = 0; i < numTris; ++i)
+				for (int a = 0; a < numDistinct; ++a)
 				{
-					voxelizeTriToBlock(block,
-					    Vec3(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]),
-					    Vec3(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]),
-					    Vec3(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]),
-					    normals.nx[i], normals.ny[i], normals.nz[i],
-					    triAreaIDs[i], hfMin, hfMax, cs, ics, ich,
-					    tileX, tileZ, yBase);
-				}
+					const uint8_t area = distinctAreas[a];
 
-				if (!extractSpansFromBlock(block, heightfield,
-				                           tileX, tileZ, yBase, H,
-				                           flagMergeThreshold))
-				{
-					rcFree(block);
-					context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
-					return false;
+					memset(block, 0, blockBytes);
+
+					for (int i = 0; i < numTris; ++i)
+					{
+						if (triAreaIDs[i] != area) continue;
+						voxelizeTriToBitBlock(block,
+						    Vec3(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]),
+						    Vec3(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]),
+						    Vec3(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]),
+						    normals.nx[i], normals.ny[i], normals.nz[i],
+						    hfMin, hfMax, cs, ics, ich,
+						    tileX, tileZ, yBase);
+					}
+
+					if (!extractSpansFromBitBlock(block, heightfield,
+					                              tileX, tileZ, yBase, H,
+					                              area, flagMergeThreshold))
+					{
+						rcFree(block);
+						context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
+						return false;
+					}
 				}
 			}
 		}
