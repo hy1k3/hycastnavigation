@@ -263,60 +263,66 @@ struct TriBounds
 	float minX, maxX, minY, maxY, minZ, maxZ;
 };
 
+/// Precomputed per-triangle plane + SAT constants.
+///
+/// Everything that depends only on the triangle geometry and the (fixed)
+/// cell size cs is computed once here and reused across every tile the
+/// triangle is bucketed into.  v0/v1/v2 are kept for the vertical-triangle
+/// edgeClipY fallback path (inv_ny == 0).
+struct TriPlane
+{
+	// Vertex positions — needed only by the vertical-triangle edgeClipY path.
+	Vec3 v0, v1, v2;
+
+	// Plane equation: y(x,z) = (d - nx*x - nz*z) * inv_ny
+	// nx/nz are embedded in the Y-slope offsets below; only d and inv_ny
+	// are stored explicitly because nx/nz would be needed to re-derive them.
+	float nx, nz;       // stored for plane eval: y00 = (d - nx*cx0 - nz*cz0)*inv_ny
+	float d, inv_ny;
+
+	// 2D SAT edge normals: perp2D(v_{i+1} - v_i) = (-(dz), dx)
+	float a0x, a0z;
+	float a1x, a1z;
+	float a2x, a2z;
+
+	// Triangle interval on each SAT axis
+	float t0min, t0max;
+	float t1min, t1max;
+	float t2min, t2max;
+
+	// Cell half-width projected onto each SAT axis: (|ax| + |az|) * cs/2
+	float r0, r1, r2;
+
+	// Y range across one cell corner (cx0,cz0) → opposite corner, used to
+	// bound the span from the single corner evaluation y00:
+	//   spanMin = y00 + min_off,  spanMax = y00 + max_off
+	float min_off, max_off;
+};
+
 /// Rasterize one triangle into a 64×64 bit block (one uint64_t column per XZ cell).
 ///
-/// @p bounds is the precomputed AABB (computed once for all tiles).
-/// The tile XZ overlap is guaranteed by the caller (bucketing); only the Y
-/// chunk check and per-cell SAT are performed here.
+/// All per-triangle constants come from the precomputed TriBounds and TriPlane;
+/// the tile XZ overlap is guaranteed by the CSR bucketing so only the Y-chunk
+/// check and per-cell SAT are performed here.
 static void voxelizeTriToBitBlock(uint64_t* block,
-                                  const Vec3& v0, const Vec3& v1, const Vec3& v2,
-                                  const float nx, const float ny, const float nz,
-                                  const TriBounds& bounds,
+                                  const TriBounds& b,
+                                  const TriPlane&  p,
                                   const Vec3& hfMin, const Vec3& hfMax,
                                   const float cs, const float ics, const float ich,
                                   const int tileX, const int tileZ, const int yBase)
 {
-	// Y chunk world bounds — only check we need since XZ tile overlap is pre-guaranteed
+	// Y chunk world bounds
 	const float ch      = 1.0f / ich;
 	const float chunkY0 = hfMin.y + yBase * ch;
 	const float chunkY1 = chunkY0 + BLOCK_Y * ch;
-	if (bounds.maxY < chunkY0 || bounds.minY >= chunkY1)
+	if (b.maxY < chunkY0 || b.minY >= chunkY1)
 		return;
 
 	// Cell range clamped to this tile
-	const int x0 = rcMax((int)((bounds.minX - hfMin.x) * ics), tileX);
-	const int x1 = rcMin((int)((bounds.maxX - hfMin.x) * ics), tileX + BLOCK_XZ - 1);
-	const int z0 = rcMax((int)((bounds.minZ - hfMin.z) * ics), tileZ);
-	const int z1 = rcMin((int)((bounds.maxZ - hfMin.z) * ics), tileZ + BLOCK_XZ - 1);
-
-	// Plane equation and SAT
-	const float d      = nx * v0.x + ny * v0.y + nz * v0.z;
-	const float inv_ny = (rcAbs(ny) > 1e-6f) ? 1.0f / ny : 0.0f;
-
-	const float a0x = -(v1.z - v0.z), a0z = v1.x - v0.x;
-	const float a1x = -(v2.z - v1.z), a1z = v2.x - v1.x;
-	const float a2x = -(v0.z - v2.z), a2z = v0.x - v2.x;
-
-	const float p00 = a0x*v0.x + a0z*v0.z,  p20 = a0x*v2.x + a0z*v2.z;
-	const float p11 = a1x*v1.x + a1z*v1.z,  p01 = a1x*v0.x + a1z*v0.z;
-	const float p22 = a2x*v2.x + a2z*v2.z,  p12 = a2x*v1.x + a2z*v1.z;
-
-	const float t0min = rcMin(p00, p20), t0max = rcMax(p00, p20);
-	const float t1min = rcMin(p11, p01), t1max = rcMax(p11, p01);
-	const float t2min = rcMin(p22, p12), t2max = rcMax(p22, p12);
-
-	const float r0 = (rcAbs(a0x) + rcAbs(a0z)) * cs * 0.5f;
-	const float r1 = (rcAbs(a1x) + rcAbs(a1z)) * cs * 0.5f;
-	const float r2 = (rcAbs(a2x) + rcAbs(a2z)) * cs * 0.5f;
-
-	float dy_dx = 0.f, dy_dz = 0.f, min_off = 0.f, max_off = 0.f;
-	if (inv_ny != 0.f)
-	{
-		dy_dx   = -nx * cs * inv_ny;
-		dy_dz   = -nz * cs * inv_ny;
-		min_off = rcMin(rcMin(0.f, dy_dx), rcMin(dy_dz, dy_dx + dy_dz));
-		max_off = rcMax(rcMax(0.f, dy_dx), rcMax(dy_dz, dy_dx + dy_dz));
-	}
+	const int x0 = rcMax((int)((b.minX - hfMin.x) * ics), tileX);
+	const int x1 = rcMin((int)((b.maxX - hfMin.x) * ics), tileX + BLOCK_XZ - 1);
+	const int z0 = rcMax((int)((b.minZ - hfMin.z) * ics), tileZ);
+	const int z1 = rcMin((int)((b.maxZ - hfMin.z) * ics), tileZ + BLOCK_XZ - 1);
 
 	const float by = hfMax.y - hfMin.y;
 
@@ -324,37 +330,37 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 	{
 		const float cz0 = hfMin.z + iz * cs;
 		const float czc = cz0 + cs * 0.5f;
-		if (bounds.maxZ <= cz0 || bounds.minZ >= cz0 + cs) continue;
+		if (b.maxZ <= cz0 || b.minZ >= cz0 + cs) continue;
 
 		for (int ix = x0; ix <= x1; ++ix)
 		{
 			const float cx0 = hfMin.x + ix * cs;
 			const float cx1 = cx0 + cs;
-			if (bounds.maxX <= cx0 || bounds.minX >= cx1) continue;
+			if (b.maxX <= cx0 || b.minX >= cx1) continue;
 
 			const float cxc = cx0 + 0.5f * cs;
-			const float c0 = a0x * cxc + a0z * czc;
-			if (r0 > 0.f && (c0 + r0 <= t0min || c0 - r0 >= t0max)) continue;
-			const float c1 = a1x * cxc + a1z * czc;
-			if (r1 > 0.f && (c1 + r1 <= t1min || c1 - r1 >= t1max)) continue;
-			const float c2 = a2x * cxc + a2z * czc;
-			if (r2 > 0.f && (c2 + r2 <= t2min || c2 - r2 >= t2max)) continue;
+			const float c0 = p.a0x * cxc + p.a0z * czc;
+			if (p.r0 > 0.f && (c0 + p.r0 <= p.t0min || c0 - p.r0 >= p.t0max)) continue;
+			const float c1 = p.a1x * cxc + p.a1z * czc;
+			if (p.r1 > 0.f && (c1 + p.r1 <= p.t1min || c1 - p.r1 >= p.t1max)) continue;
+			const float c2 = p.a2x * cxc + p.a2z * czc;
+			if (p.r2 > 0.f && (c2 + p.r2 <= p.t2min || c2 - p.r2 >= p.t2max)) continue;
 
 			float spanMin, spanMax;
-			if (inv_ny != 0.f)
+			if (p.inv_ny != 0.f)
 			{
-				const float y00 = (d - nx * cx0 - nz * cz0) * inv_ny;
-				spanMin = rcMax(y00 + min_off, bounds.minY);
-				spanMax = rcMin(y00 + max_off, bounds.maxY);
+				const float y00 = (p.d - p.nx * cx0 - p.nz * cz0) * p.inv_ny;
+				spanMin = rcMax(y00 + p.min_off, b.minY);
+				spanMax = rcMin(y00 + p.max_off, b.maxY);
 			}
 			else
 			{
 				const float cz1 = cz0 + cs;
 				spanMin =  1e30f;
 				spanMax = -1e30f;
-				edgeClipY(v0, v1, cx0, cx1, cz0, cz1, spanMin, spanMax);
-				edgeClipY(v1, v2, cx0, cx1, cz0, cz1, spanMin, spanMax);
-				edgeClipY(v2, v0, cx0, cx1, cz0, cz1, spanMin, spanMax);
+				edgeClipY(p.v0, p.v1, cx0, cx1, cz0, cz1, spanMin, spanMax);
+				edgeClipY(p.v1, p.v2, cx0, cx1, cz0, cz1, spanMin, spanMax);
+				edgeClipY(p.v2, p.v0, cx0, cx1, cz0, cz1, spanMin, spanMax);
 				if (spanMin > spanMax) continue;
 			}
 
@@ -462,22 +468,61 @@ bool rcRasterizeTriangles(rcContext* context,
 		if (!seen[a]) { seen[a] = true; distinctAreas[numDistinct++] = a; }
 	}
 
-	// --- Precompute per-triangle AABBs (computed once, reused across all tiles) ---
-	TriBounds* triAABBs = (TriBounds*)rcAlloc(numTris * (int)sizeof(TriBounds), RC_ALLOC_TEMP);
-	if (!triAABBs)
+	// --- Precompute per-triangle AABBs and plane/SAT constants ---
+	// Both are computed once here and reused across every tile the triangle is bucketed into.
+	TriBounds* triAABBs  = (TriBounds*)rcAlloc(numTris * (int)sizeof(TriBounds),  RC_ALLOC_TEMP);
+	TriPlane*  triPlanes = (TriPlane* )rcAlloc(numTris * (int)sizeof(TriPlane),   RC_ALLOC_TEMP);
+	if (!triAABBs || !triPlanes)
 	{
+		rcFree(triPlanes); rcFree(triAABBs);
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 		return false;
 	}
 	for (int i = 0; i < numTris; ++i)
 	{
+		const Vec3 v0(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]);
+		const Vec3 v1(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]);
+		const Vec3 v2(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]);
+		const float nx = normals.nx[i], ny = normals.ny[i], nz = normals.nz[i];
+
 		triAABBs[i] = {
-			rcMin(rcMin(chunk.v0x[i], chunk.v1x[i]), chunk.v2x[i]),
-			rcMax(rcMax(chunk.v0x[i], chunk.v1x[i]), chunk.v2x[i]),
-			rcMin(rcMin(chunk.v0y[i], chunk.v1y[i]), chunk.v2y[i]),
-			rcMax(rcMax(chunk.v0y[i], chunk.v1y[i]), chunk.v2y[i]),
-			rcMin(rcMin(chunk.v0z[i], chunk.v1z[i]), chunk.v2z[i]),
-			rcMax(rcMax(chunk.v0z[i], chunk.v1z[i]), chunk.v2z[i]),
+			rcMin(rcMin(v0.x, v1.x), v2.x), rcMax(rcMax(v0.x, v1.x), v2.x),
+			rcMin(rcMin(v0.y, v1.y), v2.y), rcMax(rcMax(v0.y, v1.y), v2.y),
+			rcMin(rcMin(v0.z, v1.z), v2.z), rcMax(rcMax(v0.z, v1.z), v2.z),
+		};
+
+		const float inv_ny = (rcAbs(ny) > 1e-6f) ? 1.0f / ny : 0.0f;
+
+		const float a0x = -(v1.z - v0.z), a0z = v1.x - v0.x;
+		const float a1x = -(v2.z - v1.z), a1z = v2.x - v1.x;
+		const float a2x = -(v0.z - v2.z), a2z = v0.x - v2.x;
+
+		const float p00 = a0x*v0.x + a0z*v0.z, p20 = a0x*v2.x + a0z*v2.z;
+		const float p11 = a1x*v1.x + a1z*v1.z, p01 = a1x*v0.x + a1z*v0.z;
+		const float p22 = a2x*v2.x + a2z*v2.z, p12 = a2x*v1.x + a2z*v1.z;
+
+		float min_off = 0.f, max_off = 0.f;
+		if (inv_ny != 0.f)
+		{
+			const float dy_dx = -nx * cs * inv_ny;
+			const float dy_dz = -nz * cs * inv_ny;
+			min_off = rcMin(rcMin(0.f, dy_dx), rcMin(dy_dz, dy_dx + dy_dz));
+			max_off = rcMax(rcMax(0.f, dy_dx), rcMax(dy_dz, dy_dx + dy_dz));
+		}
+
+		triPlanes[i] = {
+			v0, v1, v2,
+			nx, nz,
+			nx*v0.x + ny*v0.y + nz*v0.z,  // d
+			inv_ny,
+			a0x, a0z, a1x, a1z, a2x, a2z,
+			rcMin(p00, p20), rcMax(p00, p20),
+			rcMin(p11, p01), rcMax(p11, p01),
+			rcMin(p22, p12), rcMax(p22, p12),
+			(rcAbs(a0x) + rcAbs(a0z)) * cs * 0.5f,
+			(rcAbs(a1x) + rcAbs(a1z)) * cs * 0.5f,
+			(rcAbs(a2x) + rcAbs(a2z)) * cs * 0.5f,
+			min_off, max_off,
 		};
 	}
 
@@ -487,7 +532,7 @@ bool rcRasterizeTriangles(rcContext* context,
 	const int numTiles  = numTilesX * numTilesZ;
 
 	int* tileCounts = (int*)rcAlloc(numTiles * (int)sizeof(int), RC_ALLOC_TEMP);
-	if (!tileCounts) { rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
+	if (!tileCounts) { rcFree(triPlanes); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
 	memset(tileCounts, 0, numTiles * sizeof(int));
 
 	// Count pass: how many triangles touch each tile
@@ -505,7 +550,7 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	// Prefix sum → per-tile start offsets in the flat index array
 	int* tileStarts = (int*)rcAlloc((numTiles + 1) * (int)sizeof(int), RC_ALLOC_TEMP);
-	if (!tileStarts) { rcFree(tileCounts); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
+	if (!tileStarts) { rcFree(tileCounts); rcFree(triPlanes); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
 	tileStarts[0] = 0;
 	for (int t = 0; t < numTiles; ++t)
 		tileStarts[t + 1] = tileStarts[t] + tileCounts[t];
@@ -517,7 +562,7 @@ bool rcRasterizeTriangles(rcContext* context,
 	if (totalRefs > 0)
 	{
 		tileTriList = (int*)rcAlloc(totalRefs * (int)sizeof(int), RC_ALLOC_TEMP);
-		if (!tileTriList) { rcFree(tileStarts); rcFree(tileCounts); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
+		if (!tileTriList) { rcFree(tileStarts); rcFree(tileCounts); rcFree(triPlanes); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
 	}
 	memset(tileCounts, 0, numTiles * sizeof(int));  // reuse as fill cursors
 	for (int i = 0; i < numTris; ++i)
@@ -538,7 +583,7 @@ bool rcRasterizeTriangles(rcContext* context,
 	// --- Allocate the 32 KB bit block (reused across all tiles) ---
 	const int blockBytes = BLOCK_XZ * BLOCK_XZ * (int)sizeof(uint64_t);
 	uint64_t* const block = (uint64_t*)rcAlloc(blockBytes, RC_ALLOC_TEMP);
-	if (!block) { rcFree(tileTriList); rcFree(tileStarts); rcFree(tileCounts); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
+	if (!block) { rcFree(tileTriList); rcFree(tileStarts); rcFree(tileCounts); rcFree(triPlanes); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
 
 	// --- Main loop: tile × yBase × area group ---
 	bool ok = true;
@@ -566,11 +611,8 @@ bool rcRasterizeTriangles(rcContext* context,
 						const int i = tris[ii];
 						if (triAreaIDs[i] != area) continue;
 						voxelizeTriToBitBlock(block,
-						    Vec3(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]),
-						    Vec3(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]),
-						    Vec3(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]),
-						    normals.nx[i], normals.ny[i], normals.nz[i],
-						    triAABBs[i], hfMin, hfMax, cs, ics, ich,
+						    triAABBs[i], triPlanes[i],
+						    hfMin, hfMax, cs, ics, ich,
 						    tileX, tileZ, yBase);
 					}
 
@@ -586,6 +628,7 @@ bool rcRasterizeTriangles(rcContext* context,
 	rcFree(tileTriList);
 	rcFree(tileStarts);
 	rcFree(tileCounts);
+	rcFree(triPlanes);
 	rcFree(triAABBs);
 
 	if (!ok)
