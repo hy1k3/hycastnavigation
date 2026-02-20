@@ -17,6 +17,7 @@
 //
 
 #include <cstdint>
+#include <cstring>
 #include <math.h>
 #include "Recast.h"
 #include "RecastAlloc.h"
@@ -28,27 +29,17 @@
 #  include <immintrin.h>
 #  if defined(_MSC_VER)
 #    include <intrin.h>
-static int rcCtz32(unsigned x) { unsigned long i; _BitScanForward(&i, x); return (int)i; }
+static int rcCtz32(unsigned x)           { unsigned long i; _BitScanForward(&i, x);   return (int)i; }
+static int rcCtz64(unsigned long long x) { unsigned long i; _BitScanForward64(&i, x); return (int)i; }
 #  else
-static int rcCtz32(unsigned x) { return __builtin_ctz(x); }
+static int rcCtz32(unsigned x)           { return __builtin_ctz(x); }
+static int rcCtz64(unsigned long long x) { return __builtin_ctzll(x); }
 #  endif
+#else
+static int rcCtz64(unsigned long long x) { return __builtin_ctzll(x); }
 #endif
 
 
-/// Check whether two bounding boxes overlap
-///
-/// @param[in]	aMin	Min axis extents of bounding box A
-/// @param[in]	aMax	Max axis extents of bounding box A
-/// @param[in]	bMin	Min axis extents of bounding box B
-/// @param[in]	bMax	Max axis extents of bounding box B
-/// @returns true if the two bounding boxes overlap.  False otherwise.
-static bool overlapBounds(const Vec3& aMin, const Vec3& aMax, const Vec3& bMin, const Vec3& bMax)
-{
-	return
-		aMin.x <= bMax.x && aMax.x >= bMin.x &&
-		aMin.y <= bMax.y && aMax.y >= bMin.y &&
-		aMin.z <= bMax.z && aMax.z >= bMin.z;
-}
 
 /// Allocates a new span in the heightfield.
 /// Use a memory pool and free list to minimize actual allocations.
@@ -260,26 +251,54 @@ static bool edgeClipY(const Vec3& va, const Vec3& vb,
 	return true;
 }
 
-/// Rasterize a single triangle to the heightfield using the plane equation.
-///
-/// For each cell in the triangle's XZ AABB, a 2D separating-axis test (3 edge axes)
-/// determines overlap.  The Y span is computed analytically from the plane equation
-/// evaluated at the four cell corners — exact for planar triangles, always conservative.
-/// Vertical triangles (ny ≈ 0) fall back to the triangle's full Y range.
-///
-/// This code is extremely hot, so much care should be given to maintaining maximum perf here.
-static bool rasterizeTri(const Vec3& v0, const Vec3& v1, const Vec3& v2,
-                         const float nx, const float ny, const float nz,
-                         const uint8_t areaID, rcHeightfield& heightfield,
-                         const Vec3& hfMin, const Vec3& hfMax,
-                         const float cs, const float ics, const float ich,
-                         const int flagMergeThreshold)
-{
-	const int w = heightfield.width;
-	const int h = heightfield.height;
-	const float by = hfMax.y - hfMin.y;
+// ---------------------------------------------------------------------------
+// 64×64×64 block voxelization
+//
+// The heightfield is tiled into BLOCK_XZ×BLOCK_XZ XZ tiles.  The full span-
+// height range is sliced into BLOCK_Y chunks.  Each (tile, chunk) combination
+// is processed as a dense 256 KB byte block: triangles write area+1 bytes via
+// element-wise max; the extract pass converts byte runs to linked-list spans.
+// This avoids the pointer-chasing of addSpan during the hot rasterization loop.
+// ---------------------------------------------------------------------------
 
-	// Triangle AABB
+static const int BLOCK_XZ = 64;
+static const int BLOCK_Y  = 64;
+
+/// Fill col[yMin..yMax) with element-wise max(col[y], val) using SSE2.
+/// val = areaID+1 so that 0 remains the "empty" sentinel.
+static void fillColumnSIMD(uint8_t* col, const int yMin, const int yMax, const uint8_t val)
+{
+	int y = yMin;
+#ifdef RC_USE_SSE2
+	const __m128i v = _mm_set1_epi8((char)val);
+	for (; y + 16 <= yMax; y += 16)
+	{
+		const __m128i cur = _mm_loadu_si128((const __m128i*)(col + y));
+		_mm_storeu_si128((__m128i*)(col + y), _mm_max_epu8(cur, v));
+	}
+#endif
+	for (; y < yMax; ++y)
+		col[y] = rcMax(col[y], val);
+}
+
+/// Rasterize one triangle into a 64×64×64 voxel block.
+///
+/// The block covers heightfield cells [tileX, tileX+BLOCK_XZ) × [tileZ, tileZ+BLOCK_XZ)
+/// and span indices [yBase, yBase+BLOCK_Y).  Each byte stores areaID+1
+/// (0 = empty); higher value wins when multiple triangles overlap.
+///
+/// Uses the same plane-equation + 2D SAT approach as the old rasterizeTri.
+static void voxelizeTriToBlock(uint8_t* block,
+                               const Vec3& v0, const Vec3& v1, const Vec3& v2,
+                               const float nx, const float ny, const float nz,
+                               const uint8_t areaID,
+                               const Vec3& hfMin, const Vec3& hfMax,
+                               const float cs, const float ics, const float ich,
+                               const int tileX, const int tileZ, const int yBase)
+{
+	// Practical area IDs are 0–63; stored as 1–64, no uint8 overflow.
+	const uint8_t stored = (uint8_t)(areaID + 1u);
+
 	const float triMinX = rcMin(rcMin(v0.x, v1.x), v2.x);
 	const float triMaxX = rcMax(rcMax(v0.x, v1.x), v2.x);
 	const float triMinY = rcMin(rcMin(v0.y, v1.y), v2.y);
@@ -287,81 +306,87 @@ static bool rasterizeTri(const Vec3& v0, const Vec3& v1, const Vec3& v2,
 	const float triMinZ = rcMin(rcMin(v0.z, v1.z), v2.z);
 	const float triMaxZ = rcMax(rcMax(v0.z, v1.z), v2.z);
 
-	// Cell range in XZ, clamped to heightfield
-	const int x0 = rcClamp((int)((triMinX - hfMin.x) * ics), 0, w - 1);
-	const int x1 = rcClamp((int)((triMaxX - hfMin.x) * ics), 0, w - 1);
-	const int z0 = rcClamp((int)((triMinZ - hfMin.z) * ics), 0, h - 1);
-	const int z1 = rcClamp((int)((triMaxZ - hfMin.z) * ics), 0, h - 1);
+	// Tile XZ world bounds
+	const float tileX0 = hfMin.x + tileX * cs,  tileX1 = tileX0 + BLOCK_XZ * cs;
+	const float tileZ0 = hfMin.z + tileZ * cs,  tileZ1 = tileZ0 + BLOCK_XZ * cs;
+	if (triMaxX <= tileX0 || triMinX >= tileX1 ||
+	    triMaxZ <= tileZ0 || triMinZ >= tileZ1)
+		return;
 
-	// Plane: d = dot(n, v0).  y(x,z) = (d - nx*x - nz*z) / ny
-	const float d = nx * v0.x + ny * v0.y + nz * v0.z;
+	// Y chunk world bounds
+	const float ch = 1.0f / ich;
+	const float chunkY0 = hfMin.y + yBase * ch;
+	const float chunkY1 = chunkY0 + BLOCK_Y * ch;
+	if (triMaxY < chunkY0 || triMinY >= chunkY1)
+		return;
+
+	// Cell range clamped to this tile
+	const int x0 = rcMax((int)((triMinX - hfMin.x) * ics), tileX);
+	const int x1 = rcMin((int)((triMaxX - hfMin.x) * ics), tileX + BLOCK_XZ - 1);
+	const int z0 = rcMax((int)((triMinZ - hfMin.z) * ics), tileZ);
+	const int z1 = rcMin((int)((triMaxZ - hfMin.z) * ics), tileZ + BLOCK_XZ - 1);
+	if (x0 > x1 || z0 > z1) return;
+
+	// Plane equation and SAT — same as rasterizeTri
+	const float d     = nx * v0.x + ny * v0.y + nz * v0.z;
 	const float inv_ny = (rcAbs(ny) > 1e-6f) ? 1.0f / ny : 0.0f;
 
-	// 2D SAT (XZ plane): 3 edge-normal axes.  Box axes are satisfied by AABB iteration.
-	// Edge i axis = perp2D(vi+1 - vi) = (-(vi+1.z - vi.z),  vi+1.x - vi.x)
 	const float a0x = -(v1.z - v0.z), a0z = v1.x - v0.x;
 	const float a1x = -(v2.z - v1.z), a1z = v2.x - v1.x;
 	const float a2x = -(v0.z - v2.z), a2z = v0.x - v2.x;
 
-	// Triangle interval on each axis.  v0/v1 project equally on a0, etc.
-	const float p00 = a0x * v0.x + a0z * v0.z,  p20 = a0x * v2.x + a0z * v2.z;
-	const float p11 = a1x * v1.x + a1z * v1.z,  p01 = a1x * v0.x + a1z * v0.z;
-	const float p22 = a2x * v2.x + a2z * v2.z,  p12 = a2x * v1.x + a2z * v1.z;
+	const float p00 = a0x*v0.x + a0z*v0.z,  p20 = a0x*v2.x + a0z*v2.z;
+	const float p11 = a1x*v1.x + a1z*v1.z,  p01 = a1x*v0.x + a1z*v0.z;
+	const float p22 = a2x*v2.x + a2z*v2.z,  p12 = a2x*v1.x + a2z*v1.z;
 
 	const float t0min = rcMin(p00, p20), t0max = rcMax(p00, p20);
 	const float t1min = rcMin(p11, p01), t1max = rcMax(p11, p01);
 	const float t2min = rcMin(p22, p12), t2max = rcMax(p22, p12);
 
-	// Cell radius projected onto each axis: r = (|ax| + |az|) * cs/2
 	const float r0 = (rcAbs(a0x) + rcAbs(a0z)) * cs * 0.5f;
 	const float r1 = (rcAbs(a1x) + rcAbs(a1z)) * cs * 0.5f;
 	const float r2 = (rcAbs(a2x) + rcAbs(a2z)) * cs * 0.5f;
+
+	float dy_dx = 0.f, dy_dz = 0.f, min_off = 0.f, max_off = 0.f;
+	if (inv_ny != 0.f)
+	{
+		dy_dx   = -nx * cs * inv_ny;
+		dy_dz   = -nz * cs * inv_ny;
+		min_off = rcMin(rcMin(0.f, dy_dx), rcMin(dy_dz, dy_dx + dy_dz));
+		max_off = rcMax(rcMax(0.f, dy_dx), rcMax(dy_dz, dy_dx + dy_dz));
+	}
+
+	const float by = hfMax.y - hfMin.y;
 
 	for (int iz = z0; iz <= z1; ++iz)
 	{
 		const float cz0 = hfMin.z + iz * cs;
 		const float czc = cz0 + cs * 0.5f;
+		if (triMaxZ <= cz0 || triMinZ >= cz0 + cs) continue;
 
 		for (int ix = x0; ix <= x1; ++ix)
 		{
 			const float cx0 = hfMin.x + ix * cs;
 			const float cx1 = cx0 + cs;
-			const float cxc = cx0 + cs * 0.5f;
-
-			// Box-axis checks: exclude cells that only touch the triangle AABB boundary.
-			// This is required for degenerate XZ triangles where the edge-normal SAT
-			// axes all collapse to the same direction and don't provide X/Z separation.
 			if (triMaxX <= cx0 || triMinX >= cx1) continue;
-			if (triMaxZ <= cz0 || triMinZ >= cz0 + cs) continue;
 
-			// SAT: skip cell if separated (or only touching) on any edge axis.
-			// Using <= / >= matches the polygon-clip approach: degenerate
-			// (zero-area) intersections along shared edges are excluded.
-			// Skip an axis entirely when its edge has zero XZ length (degenerate edge).
+			const float cxc = cx0 + 0.5f * cs;
 			const float c0 = a0x * cxc + a0z * czc;
-			if (r0 > 0.0f && (c0 + r0 <= t0min || c0 - r0 >= t0max)) continue;
+			if (r0 > 0.f && (c0 + r0 <= t0min || c0 - r0 >= t0max)) continue;
 			const float c1 = a1x * cxc + a1z * czc;
-			if (r1 > 0.0f && (c1 + r1 <= t1min || c1 - r1 >= t1max)) continue;
+			if (r1 > 0.f && (c1 + r1 <= t1min || c1 - r1 >= t1max)) continue;
 			const float c2 = a2x * cxc + a2z * czc;
-			if (r2 > 0.0f && (c2 + r2 <= t2min || c2 - r2 >= t2max)) continue;
+			if (r2 > 0.f && (c2 + r2 <= t2min || c2 - r2 >= t2max)) continue;
 
-			// Y span: plane equation at 4 cell corners (exact for non-vertical triangles,
-			// clamped to the triangle's Y range).  For vertical triangles (ny≈0), clip
-			// each triangle edge to the cell XZ box and use the Y of the clipped segments.
 			float spanMin, spanMax;
-			if (inv_ny != 0.0f)
+			if (inv_ny != 0.f)
 			{
-				const float cz1 = cz0 + cs;
 				const float y00 = (d - nx * cx0 - nz * cz0) * inv_ny;
-				const float y10 = (d - nx * cx1 - nz * cz0) * inv_ny;
-				const float y01 = (d - nx * cx0 - nz * cz1) * inv_ny;
-				const float y11 = (d - nx * cx1 - nz * cz1) * inv_ny;
-				spanMin = rcMax(rcMin(rcMin(y00, y10), rcMin(y01, y11)), triMinY);
-				spanMax = rcMin(rcMax(rcMax(y00, y10), rcMax(y01, y11)), triMaxY);
+				spanMin = rcMax(y00 + min_off, triMinY);
+				spanMax = rcMin(y00 + max_off, triMaxY);
 			}
 			else
 			{
-				// Vertical triangle: clip each edge to this cell's XZ box, track Y range.
 				const float cz1 = cz0 + cs;
 				spanMin =  1e30f;
 				spanMax = -1e30f;
@@ -371,24 +396,100 @@ static bool rasterizeTri(const Vec3& v0, const Vec3& v1, const Vec3& v2,
 				if (spanMin > spanMax) continue;
 			}
 
-			spanMin -= hfMin.y;
-			spanMax -= hfMin.y;
+			// Convert world Y to span indices; clamp to heightfield then to Y chunk
+			const float smRel = spanMin - hfMin.y;
+			const float sxRel = spanMax - hfMin.y;
+			if (sxRel < 0.f || smRel > by) continue;
 
-			if (spanMax < 0.0f || spanMin > by) continue;
-			spanMin = rcMax(spanMin, 0.0f);
-			spanMax = rcMin(spanMax, by);
+			const int yMin = rcClamp((int)floorf(rcMax(smRel, 0.f) * ich), 0, RC_SPAN_MAX_HEIGHT);
+			const int yMax = rcClamp((int)ceilf(rcMin(sxRel, by)  * ich), yMin + 1, RC_SPAN_MAX_HEIGHT);
 
-			const uint16_t spanMinIdx = (uint16_t)rcClamp((int)floorf(spanMin * ich), 0, RC_SPAN_MAX_HEIGHT);
-			const uint16_t spanMaxIdx = (uint16_t)rcClamp((int)ceilf(spanMax * ich), (int)spanMinIdx + 1, RC_SPAN_MAX_HEIGHT);
+			const int bMin = rcMax(yMin, yBase);
+			const int bMax = rcMin(yMax, yBase + BLOCK_Y);
+			if (bMin >= bMax) continue;
 
-			if (!addSpan(heightfield, ix, iz, spanMinIdx, spanMaxIdx, areaID, flagMergeThreshold))
-				return false;
+			const int col = (iz - tileZ) * BLOCK_XZ + (ix - tileX);
+			fillColumnSIMD(block + col * BLOCK_Y, bMin - yBase, bMax - yBase, stored);
 		}
 	}
-
-	return true;
 }
 
+/// Scan a filled block and call addSpan for each run of occupied bytes.
+///
+/// Each byte stores areaID+1; 0 = empty.  Runs of non-zero bytes map directly
+/// to spans.  SSE2 builds a 64-bit occupancy mask per column in 4 loads.
+static bool extractSpansFromBlock(const uint8_t* block, rcHeightfield& hf,
+                                  const int tileX, const int tileZ,
+                                  const int yBase, const int H,
+                                  const int flagMergeThreshold)
+{
+	for (int dz = 0; dz < BLOCK_XZ; ++dz)
+	{
+		const int iz = tileZ + dz;
+		if (iz >= hf.height) break;
+
+		for (int dx = 0; dx < BLOCK_XZ; ++dx)
+		{
+			const int ix = tileX + dx;
+			if (ix >= hf.width) break;
+
+			const uint8_t* col = block + (dz * BLOCK_XZ + dx) * BLOCK_Y;
+
+			// Build 64-bit occupancy mask: bit y = 1 if col[y] != 0
+			unsigned long long occ = 0;
+#ifdef RC_USE_SSE2
+			const __m128i zero = _mm_setzero_si128();
+			const __m128i v0v  = _mm_loadu_si128((const __m128i*)(col +  0));
+			const __m128i v1v  = _mm_loadu_si128((const __m128i*)(col + 16));
+			const __m128i v2v  = _mm_loadu_si128((const __m128i*)(col + 32));
+			const __m128i v3v  = _mm_loadu_si128((const __m128i*)(col + 48));
+			// movemask of cmpeq-zero gives 1 for empty bytes; invert for occupied
+			occ  = (unsigned long long)(uint16_t)~_mm_movemask_epi8(_mm_cmpeq_epi8(v0v, zero));
+			occ |= (unsigned long long)(uint16_t)~_mm_movemask_epi8(_mm_cmpeq_epi8(v1v, zero)) << 16;
+			occ |= (unsigned long long)(uint16_t)~_mm_movemask_epi8(_mm_cmpeq_epi8(v2v, zero)) << 32;
+			occ |= (unsigned long long)(uint16_t)~_mm_movemask_epi8(_mm_cmpeq_epi8(v3v, zero)) << 48;
+#else
+			for (int y = 0; y < BLOCK_Y; ++y)
+				if (col[y]) occ |= (1ULL << y);
+#endif
+			if (!occ) continue;
+
+			// Extract runs from the occupancy mask using bit tricks
+			unsigned long long m = occ;
+			int base = 0;  // absolute Y offset within block for current position of m
+			while (m)
+			{
+				const int lo  = rcCtz64(m);          // first set bit = start of run (relative to base)
+				const int abs_lo = base + lo;
+				const unsigned long long from_lo = m >> lo;
+				// Length of the run of 1s starting at bit 0 of from_lo
+				const int run = (from_lo == ~0ULL) ? (BLOCK_Y - abs_lo)
+				                                   : rcCtz64(~from_lo);
+				const int abs_hi = abs_lo + run;
+
+				// Area = max stored byte in [abs_lo, abs_hi) minus 1
+				uint8_t maxStored = 0;
+				for (int y = abs_lo; y < abs_hi; ++y)
+					maxStored = rcMax(maxStored, col[y]);
+				const uint8_t area = (uint8_t)(maxStored - 1u);
+
+				const uint16_t smin = (uint16_t)rcMin(yBase + abs_lo, RC_SPAN_MAX_HEIGHT);
+				const uint16_t smax = (uint16_t)rcMin(yBase + abs_hi, RC_SPAN_MAX_HEIGHT);
+				if (smin < smax && yBase + abs_lo < H)
+				{
+					if (!addSpan(hf, ix, iz, smin, smax, area, flagMergeThreshold))
+						return false;
+				}
+
+				// Advance past this run
+				if (lo + run >= 64) { m = 0; break; }
+				m >>= lo + run;
+				base = abs_hi;
+			}
+		}
+	}
+	return true;
+}
 bool rcRasterizeTriangles(rcContext* context,
                           const TriChunk& chunk, const NormalChunk& normals,
                           const int numTris, const uint8_t* triAreaIDs,
@@ -398,74 +499,58 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	rcScopedTimer timer(context, RC_TIMER_RASTERIZE_TRIANGLES);
 
-	const float ics = 1.0f / heightfield.cs;
-	const float ich = 1.0f / heightfield.ch;
+	const float cs    = heightfield.cs;
+	const float ics   = 1.0f / cs;
+	const float ich   = 1.0f / heightfield.ch;
 	const Vec3& hfMin = heightfield.bmin;
 	const Vec3& hfMax = heightfield.bmax;
+	const int   hfW   = heightfield.width;
+	const int   hfH   = heightfield.height;
 
-	int i = 0;
+	// Total span-height range, clamped to the maximum representable index.
+	// At least 1 so the Y-chunk loop runs even for flat (zero-height) heightfields;
+	// spans still get a minimum height of 1 via the yMax clamp in voxelizeTriToBlock.
+	const int H = rcMax(rcMin((int)ceilf((hfMax.y - hfMin.y) * ich), RC_SPAN_MAX_HEIGHT), 1);
 
-#ifdef RC_USE_SSE2
-	const __m128 bbMinX = _mm_set1_ps(hfMin.x);
-	const __m128 bbMinY = _mm_set1_ps(hfMin.y);
-	const __m128 bbMinZ = _mm_set1_ps(hfMin.z);
-	const __m128 bbMaxX = _mm_set1_ps(hfMax.x);
-	const __m128 bbMaxY = _mm_set1_ps(hfMax.y);
-	const __m128 bbMaxZ = _mm_set1_ps(hfMax.z);
-
-	for (; i + 4 <= numTris; i += 4)
+	// Heap-allocate the 256 KB block to avoid stack overflow.
+	uint8_t* const block = (uint8_t*)rcAlloc(BLOCK_XZ * BLOCK_XZ * BLOCK_Y, RC_ALLOC_TEMP);
+	if (!block)
 	{
-		const __m128 ax = _mm_loadu_ps(chunk.v0x + i), ay = _mm_loadu_ps(chunk.v0y + i), az = _mm_loadu_ps(chunk.v0z + i);
-		const __m128 bx = _mm_loadu_ps(chunk.v1x + i), by = _mm_loadu_ps(chunk.v1y + i), bz = _mm_loadu_ps(chunk.v1z + i);
-		const __m128 cx = _mm_loadu_ps(chunk.v2x + i), cy = _mm_loadu_ps(chunk.v2y + i), cz = _mm_loadu_ps(chunk.v2z + i);
+		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
+		return false;
+	}
 
-		// Compute per-triangle AABB across all three vertices.
-		const __m128 triMinX = _mm_min_ps(_mm_min_ps(ax, bx), cx);
-		const __m128 triMinY = _mm_min_ps(_mm_min_ps(ay, by), cy);
-		const __m128 triMinZ = _mm_min_ps(_mm_min_ps(az, bz), cz);
-		const __m128 triMaxX = _mm_max_ps(_mm_max_ps(ax, bx), cx);
-		const __m128 triMaxY = _mm_max_ps(_mm_max_ps(ay, by), cy);
-		const __m128 triMaxZ = _mm_max_ps(_mm_max_ps(az, bz), cz);
-
-		// Overlap test: triMin <= hfMax && triMax >= hfMin on all axes.
-		const __m128 okX = _mm_and_ps(_mm_cmple_ps(triMinX, bbMaxX), _mm_cmpge_ps(triMaxX, bbMinX));
-		const __m128 okY = _mm_and_ps(_mm_cmple_ps(triMinY, bbMaxY), _mm_cmpge_ps(triMaxY, bbMinY));
-		const __m128 okZ = _mm_and_ps(_mm_cmple_ps(triMinZ, bbMaxZ), _mm_cmpge_ps(triMaxZ, bbMinZ));
-		unsigned mask = (unsigned)_mm_movemask_ps(_mm_and_ps(_mm_and_ps(okX, okY), okZ));
-
-		while (mask)
+	for (int tileZ = 0; tileZ < hfH; tileZ += BLOCK_XZ)
+	{
+		for (int tileX = 0; tileX < hfW; tileX += BLOCK_XZ)
 		{
-			const int j = rcCtz32(mask);
-			if (!rasterizeTri(Vec3(chunk.v0x[i+j], chunk.v0y[i+j], chunk.v0z[i+j]),
-			                  Vec3(chunk.v1x[i+j], chunk.v1y[i+j], chunk.v1z[i+j]),
-			                  Vec3(chunk.v2x[i+j], chunk.v2y[i+j], chunk.v2z[i+j]),
-			                  normals.nx[i+j], normals.ny[i+j], normals.nz[i+j],
-			                  triAreaIDs[i+j], heightfield, hfMin, hfMax,
-			                  heightfield.cs, ics, ich, flagMergeThreshold))
+			for (int yBase = 0; yBase < H; yBase += BLOCK_Y)
 			{
-				context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
-				return false;
+				memset(block, 0, BLOCK_XZ * BLOCK_XZ * BLOCK_Y);
+
+				for (int i = 0; i < numTris; ++i)
+				{
+					voxelizeTriToBlock(block,
+					    Vec3(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]),
+					    Vec3(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]),
+					    Vec3(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]),
+					    normals.nx[i], normals.ny[i], normals.nz[i],
+					    triAreaIDs[i], hfMin, hfMax, cs, ics, ich,
+					    tileX, tileZ, yBase);
+				}
+
+				if (!extractSpansFromBlock(block, heightfield,
+				                           tileX, tileZ, yBase, H,
+				                           flagMergeThreshold))
+				{
+					rcFree(block);
+					context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
+					return false;
+				}
 			}
-			mask &= mask - 1;
-		}
-	}
-#endif
-
-	for (; i < numTris; ++i)
-	{
-		const Vec3 a(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]);
-		const Vec3 b(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]);
-		const Vec3 c(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]);
-		if (!overlapBounds(vmin(vmin(a, b), c), vmax(vmax(a, b), c), hfMin, hfMax))
-			continue;
-		if (!rasterizeTri(a, b, c, normals.nx[i], normals.ny[i], normals.nz[i],
-		                  triAreaIDs[i], heightfield, hfMin, hfMax,
-		                  heightfield.cs, ics, ich, flagMergeThreshold))
-		{
-			context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
-			return false;
 		}
 	}
 
+	rcFree(block);
 	return true;
 }
