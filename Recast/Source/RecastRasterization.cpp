@@ -447,18 +447,27 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	rcScopedTimer timer(context, RC_TIMER_RASTERIZE_TRIANGLES);
 
-	const float cs    = heightfield.cs;
-	const float ics   = 1.0f / cs;
-	const float ich   = 1.0f / heightfield.ch;
-	const Vec3& hfMin = heightfield.bmin;
-	const Vec3& hfMax = heightfield.bmax;
-	const int   hfW   = heightfield.width;
-	const int   hfH   = heightfield.height;
+	// Cache heightfield parameters into locals for readability and to avoid
+	// repeated pointer dereferences in the inner loops.
+	const float cs    = heightfield.cs;   // cell size in XZ (metres per voxel column)
+	const float ics   = 1.0f / cs;        // reciprocal: world units → voxel column index
+	const float ich   = 1.0f / heightfield.ch;  // reciprocal: world Y → voxel row index
+	const Vec3& hfMin = heightfield.bmin;  // world-space minimum corner of the heightfield
+	const Vec3& hfMax = heightfield.bmax;  // world-space maximum corner
+	const int   hfW   = heightfield.width;   // number of columns in X
+	const int   hfH   = heightfield.height;  // number of columns in Z
 
-	// Total span-height range.  At least 1 so the Y-chunk loop runs for flat heightfields.
+	// Total voxel height of the heightfield, clamped to the maximum span height
+	// representable in an rcSpan (RC_SPAN_MAX_HEIGHT).  At least 1 so the Y-chunk
+	// loop below always executes at least once, even for a completely flat field.
 	const int H = rcMax(rcMin((int)ceilf((hfMax.y - hfMin.y) * ich), RC_SPAN_MAX_HEIGHT), 1);
 
-	// --- Collect distinct area IDs ---
+	// --- Collect distinct area IDs present in this batch ---
+	// The main rasterization loop processes one area at a time so that spans from
+	// different areas stay separate until addSpan merges them with flagMergeThreshold.
+	// Collecting distinct IDs here avoids scanning all triangles once per area in
+	// the inner loop.  The array is small (at most 256 entries) so it lives on the
+	// stack.
 	bool seen[256] = {};
 	uint8_t distinctAreas[256];
 	int numDistinct = 0;
@@ -469,15 +478,17 @@ bool rcRasterizeTriangles(rcContext* context,
 	}
 
 	// --- Precompute per-triangle AABBs and plane/SAT constants ---
-	// Both are computed once here and reused across every tile the triangle is bucketed into.
-	TriBounds* triAABBs  = (TriBounds*)rcAlloc(numTris * (int)sizeof(TriBounds),  RC_ALLOC_TEMP);
-	TriPlane*  triPlanes = (TriPlane* )rcAlloc(numTris * (int)sizeof(TriPlane),   RC_ALLOC_TEMP);
-	if (!triAABBs || !triPlanes)
+	// All of these are derived from the triangle vertices and normal once, then
+	// reused for every tile the triangle overlaps.  Paying the upfront cost here
+	// amortises the per-tile work across however many tiles each triangle touches.
+	rcScopedDelete<TriBounds> triAABBs ((TriBounds*)rcAlloc(numTris * (int)sizeof(TriBounds),  RC_ALLOC_TEMP));
+	rcScopedDelete<TriPlane>  triPlanes((TriPlane* )rcAlloc(numTris * (int)sizeof(TriPlane),   RC_ALLOC_TEMP));
+	if (triAABBs == nullptr || triPlanes == nullptr)
 	{
-		rcFree(triPlanes); rcFree(triAABBs);
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 		return false;
 	}
+
 	for (int i = 0; i < numTris; ++i)
 	{
 		const Vec3 v0(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]);
@@ -485,22 +496,46 @@ bool rcRasterizeTriangles(rcContext* context,
 		const Vec3 v2(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]);
 		const float nx = normals.nx[i], ny = normals.ny[i], nz = normals.nz[i];
 
+		// Axis-aligned bounding box: component-wise min/max over the three vertices.
+		// Used to cull tiles that can't possibly overlap the triangle.
 		triAABBs[i] = {
 			rcMin(rcMin(v0.x, v1.x), v2.x), rcMax(rcMax(v0.x, v1.x), v2.x),
 			rcMin(rcMin(v0.y, v1.y), v2.y), rcMax(rcMax(v0.y, v1.y), v2.y),
 			rcMin(rcMin(v0.z, v1.z), v2.z), rcMax(rcMax(v0.z, v1.z), v2.z),
 		};
 
+		// Reciprocal of the Y component of the triangle normal.
+		// Used to solve the plane equation for Y given an (X, Z) position:
+		//   Y = (d - nx*X - nz*Z) * inv_ny
+		// Zero when the triangle is nearly vertical (|ny| < epsilon), in which
+		// case no Y interpolation is needed (the triangle contributes no solid
+		// voxels in the height direction and is skipped during voxelization).
 		const float inv_ny = (rcAbs(ny) > 1e-6f) ? 1.0f / ny : 0.0f;
 
+		// 2-D edge normals in the XZ plane, one per edge.
+		// Each edge normal (aEx, aEz) points outward from the triangle interior.
+		// These are the separating axes used by the SAT overlap test between the
+		// triangle and each BLOCK_XZ × BLOCK_XZ voxel column cell.
+		//   edge 0: v0→v1,  edge 1: v1→v2,  edge 2: v2→v0
 		const float a0x = -(v1.z - v0.z), a0z = v1.x - v0.x;
 		const float a1x = -(v2.z - v1.z), a1z = v2.x - v1.x;
 		const float a2x = -(v0.z - v2.z), a2z = v0.x - v2.x;
 
+		// Project the triangle vertices onto each edge normal to get the interval
+		// [min, max] of the triangle along that separating axis.  Only two of the
+		// three vertices are needed per edge because one vertex is always on the
+		// edge itself and drops out of the min/max.
 		const float p00 = a0x*v0.x + a0z*v0.z, p20 = a0x*v2.x + a0z*v2.z;
 		const float p11 = a1x*v1.x + a1z*v1.z, p01 = a1x*v0.x + a1z*v0.z;
 		const float p22 = a2x*v2.x + a2z*v2.z, p12 = a2x*v1.x + a2z*v1.z;
 
+		// Y offset range of the triangle plane across one voxel cell in XZ.
+		// Because the plane is tilted, the Y value at the +X corner of a cell
+		// differs from the Y value at the -X corner by dy_dx = -nx*cs/ny (and
+		// similarly dy_dz for the Z axis).  min_off / max_off bound the full Y
+		// variation across all four corners of a cell, allowing voxelizeTriToBitBlock
+		// to tighten the Y interval tested per cell.  Both are zero for a flat
+		// (horizontal) triangle, or when the triangle is vertical (inv_ny == 0).
 		float min_off = 0.f, max_off = 0.f;
 		if (inv_ny != 0.f)
 		{
@@ -513,12 +548,16 @@ bool rcRasterizeTriangles(rcContext* context,
 		triPlanes[i] = {
 			v0, v1, v2,
 			nx, nz,
-			nx*v0.x + ny*v0.y + nz*v0.z,  // d
+			nx*v0.x + ny*v0.y + nz*v0.z,  // d: plane equation constant, dot(n, v0)
 			inv_ny,
 			a0x, a0z, a1x, a1z, a2x, a2z,
-			rcMin(p00, p20), rcMax(p00, p20),
-			rcMin(p11, p01), rcMax(p11, p01),
-			rcMin(p22, p12), rcMax(p22, p12),
+			rcMin(p00, p20), rcMax(p00, p20),  // SAT interval on edge-0 axis
+			rcMin(p11, p01), rcMax(p11, p01),  // SAT interval on edge-1 axis
+			rcMin(p22, p12), rcMax(p22, p12),  // SAT interval on edge-2 axis
+			// Half-widths of a voxel cell projected onto each edge normal.
+			// A cell's interval on axis aE is centred at dot(aE, cellCentre) with
+			// half-width r = (|aEx| + |aEz|) * cs * 0.5.  SAT overlap iff the
+			// triangle interval and cell interval intersect.
 			(rcAbs(a0x) + rcAbs(a0z)) * cs * 0.5f,
 			(rcAbs(a1x) + rcAbs(a1z)) * cs * 0.5f,
 			(rcAbs(a2x) + rcAbs(a2z)) * cs * 0.5f,
@@ -527,18 +566,29 @@ bool rcRasterizeTriangles(rcContext* context,
 	}
 
 	// --- Bucket triangles into tiles (CSR format) ---
+	// The heightfield is divided into BLOCK_XZ × BLOCK_XZ column tiles.  Each
+	// triangle is associated with every tile whose XZ footprint overlaps the
+	// triangle's AABB.  Storing these associations in CSR (compressed sparse row)
+	// format — a flat index array with per-tile start offsets — avoids dynamic
+	// allocation per tile and gives cache-friendly sequential access in the main loop.
 	const int numTilesX = (hfW + BLOCK_XZ - 1) / BLOCK_XZ;
 	const int numTilesZ = (hfH + BLOCK_XZ - 1) / BLOCK_XZ;
 	const int numTiles  = numTilesX * numTilesZ;
 
-	int* tileCounts = (int*)rcAlloc(numTiles * (int)sizeof(int), RC_ALLOC_TEMP);
-	if (!tileCounts) { rcFree(triPlanes); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
+	// Pass 1: count how many triangles reference each tile.
+	rcScopedDelete<int> tileCounts((int*)rcAlloc(numTiles * (int)sizeof(int), RC_ALLOC_TEMP));
+	if (tileCounts == nullptr)
+	{
+		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
+		return false;
+	}
 	memset(tileCounts, 0, numTiles * sizeof(int));
 
-	// Count pass: how many triangles touch each tile
 	for (int i = 0; i < numTris; ++i)
 	{
 		const TriBounds& b = triAABBs[i];
+		// Convert the triangle AABB corners from world space to tile indices,
+		// clamping to the valid tile range.
 		const int txMin = rcMax((int)((b.minX - hfMin.x) * ics) / BLOCK_XZ, 0);
 		const int txMax = rcMin((int)((b.maxX - hfMin.x) * ics) / BLOCK_XZ, numTilesX - 1);
 		const int tzMin = rcMax((int)((b.minZ - hfMin.z) * ics) / BLOCK_XZ, 0);
@@ -548,21 +598,30 @@ bool rcRasterizeTriangles(rcContext* context,
 				++tileCounts[tz * numTilesX + tx];
 	}
 
-	// Prefix sum → per-tile start offsets in the flat index array
-	int* tileStarts = (int*)rcAlloc((numTiles + 1) * (int)sizeof(int), RC_ALLOC_TEMP);
-	if (!tileStarts) { rcFree(tileCounts); rcFree(triPlanes); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
+	// Prefix sum over tileCounts → per-tile start offsets (tileStarts[t] is the
+	// index into tileTriList where tile t's triangle list begins).
+	// tileStarts has numTiles + 1 entries so tileStarts[t+1] - tileStarts[t]
+	// gives the count for tile t without a special-case for the last tile.
+	rcScopedDelete<int> tileStarts((int*)rcAlloc((numTiles + 1) * (int)sizeof(int), RC_ALLOC_TEMP));
+	if (tileStarts == nullptr)
+	{
+		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
+		return false;
+	}
 	tileStarts[0] = 0;
 	for (int t = 0; t < numTiles; ++t)
 		tileStarts[t + 1] = tileStarts[t] + tileCounts[t];
 
+	// Total number of (triangle, tile) pairs across all triangles.
 	const int totalRefs = tileStarts[numTiles];
 
-	// Fill pass: write triangle indices into per-tile slots
-	int* tileTriList = nullptr;
-	if (totalRefs > 0)
+	// Pass 2: fill tileTriList with triangle indices, using tileCounts as
+	// running write cursors (reset to 0 and incremented as each entry is written).
+	rcScopedDelete<int> tileTriList(totalRefs > 0 ? (int*)rcAlloc(totalRefs * (int)sizeof(int), RC_ALLOC_TEMP) : nullptr);
+	if (totalRefs > 0 && tileTriList == nullptr)
 	{
-		tileTriList = (int*)rcAlloc(totalRefs * (int)sizeof(int), RC_ALLOC_TEMP);
-		if (!tileTriList) { rcFree(tileStarts); rcFree(tileCounts); rcFree(triPlanes); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
+		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
+		return false;
 	}
 	memset(tileCounts, 0, numTiles * sizeof(int));  // reuse as fill cursors
 	for (int i = 0; i < numTris; ++i)
@@ -580,23 +639,40 @@ bool rcRasterizeTriangles(rcContext* context,
 			}
 	}
 
-	// --- Allocate the 32 KB bit block (reused across all tiles) ---
+	// --- Allocate the bit block (reused across all tiles and Y-chunks) ---
+	// The block is a BLOCK_XZ × BLOCK_XZ grid of uint64_t words.  Each word
+	// covers one XZ column over BLOCK_Y (= 64) voxel rows, with bit k set when
+	// voxel row (yBase + k) within that column is occupied by solid geometry.
+	// A single block therefore covers a BLOCK_XZ × BLOCK_Y × BLOCK_XZ region
+	// of the heightfield.  It is zeroed before each (tile, yBase, area) triple
+	// and reused to avoid repeated allocations in the innermost loops.
 	const int blockBytes = BLOCK_XZ * BLOCK_XZ * (int)sizeof(uint64_t);
-	uint64_t* const block = (uint64_t*)rcAlloc(blockBytes, RC_ALLOC_TEMP);
-	if (!block) { rcFree(tileTriList); rcFree(tileStarts); rcFree(tileCounts); rcFree(triPlanes); rcFree(triAABBs); context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); return false; }
+	rcScopedDelete<uint64_t> block((uint64_t*)rcAlloc(blockBytes, RC_ALLOC_TEMP));
+	if (block == nullptr)
+	{
+		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
+		return false;
+	}
 
-	// --- Main loop: tile × yBase × area group ---
+	// --- Main loop: tile × Y-chunk × area ---
+	// The three-level nesting keeps working-set sizes small:
+	//   Outer (tile): selects the subset of triangles relevant to this XZ region.
+	//   Middle (yBase): slices the vertical range into BLOCK_Y-voxel chunks so
+	//     the bit block fits in L1/L2 cache regardless of heightfield height.
+	//   Inner (area): processes one area ID at a time so that spans written for
+	//     different areas are kept separate until addSpan merges touching spans
+	//     of the same area with flagMergeThreshold.
 	bool ok = true;
 	for (int tz = 0; tz < numTilesZ && ok; ++tz)
 	{
-		const int tileZ = tz * BLOCK_XZ;
+		const int tileZ = tz * BLOCK_XZ;  // Z origin of this tile in voxel columns
 		for (int tx = 0; tx < numTilesX && ok; ++tx)
 		{
-			const int tileX = tx * BLOCK_XZ;
+			const int tileX = tx * BLOCK_XZ;  // X origin of this tile in voxel columns
 			const int  t     = tz * numTilesX + tx;
-			const int  nTris = tileStarts[t + 1] - tileStarts[t];
-			const int* tris  = tileTriList + tileStarts[t];
-			if (nTris == 0) continue;
+			const int  nTris = tileStarts[t + 1] - tileStarts[t];  // triangles in this tile
+			const int* tris  = tileTriList + tileStarts[t];         // their indices
+			if (nTris == 0) continue;  // no geometry in this tile — skip
 
 			for (int yBase = 0; yBase < H && ok; yBase += BLOCK_Y)
 			{
@@ -604,8 +680,12 @@ bool rcRasterizeTriangles(rcContext* context,
 				{
 					const uint8_t area = distinctAreas[a];
 
+					// Clear all voxel bits for this (tile, yBase, area) triple.
 					memset(block, 0, blockBytes);
 
+					// Voxelize every triangle of this area into the bit block.
+					// Triangles of other areas are skipped so their solid volume
+					// doesn't bleed into this area's span list.
 					for (int ii = 0; ii < nTris; ++ii)
 					{
 						const int i = tris[ii];
@@ -616,6 +696,8 @@ bool rcRasterizeTriangles(rcContext* context,
 						    tileX, tileZ, yBase);
 					}
 
+					// Convert the occupied bit runs in the block to rcSpan entries
+					// and merge them into the heightfield, tagged with this area ID.
 					ok = extractSpansFromBitBlock(block, heightfield,
 					                              tileX, tileZ, yBase, H,
 					                              area, flagMergeThreshold);
@@ -623,13 +705,6 @@ bool rcRasterizeTriangles(rcContext* context,
 			}
 		}
 	}
-
-	rcFree(block);
-	rcFree(tileTriList);
-	rcFree(tileStarts);
-	rcFree(tileCounts);
-	rcFree(triPlanes);
-	rcFree(triAABBs);
 
 	if (!ok)
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
