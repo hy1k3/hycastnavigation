@@ -451,13 +451,13 @@ static bool extractSpansFromBitBlock(const uint64_t* block, rcHeightfield& hf,
 			const uint64_t occ = block[dz * BLOCK_XZ + dx];
 			if (!occ) continue;
 
-			unsigned long long m = occ;
+			uint64_t m = occ;
 			int base = 0;
 			while (m)
 			{
 				const int lo     = rcCtz64(m);
 				const int abs_lo = base + lo;
-				const unsigned long long from_lo = m >> lo;
+				const uint64_t from_lo = m >> lo;
 				const int run    = (from_lo == ~0ULL) ? (BLOCK_Y - abs_lo)
 				                                      : rcCtz64(~from_lo);
 				const int abs_hi = abs_lo + run;
