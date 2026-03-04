@@ -354,7 +354,8 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 	const float ch       = 1.0f / inv_ch;
 	const float chunk_y0 = hf_min.y + y_base * ch;
 	const float chunk_y1 = chunk_y0 + BLOCK_Y * ch;
-	if (b_max_y < chunk_y0 || b_min_y >= chunk_y1) { return; }
+	if (b_max_y < chunk_y0 || b_min_y >= chunk_y1)
+		return;
 
 	// Cell range clamped to this tile
 	const int x0 = rcMax((int)((b_min_x - hf_min.x) * inv_cs), tile_x);
@@ -368,21 +369,26 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 	{
 		const float cz0 = hf_min.z + iz * cs;
 		const float czc = cz0 + cs * 0.5f;
-		if (b_max_z <= cz0 || b_min_z >= cz0 + cs) { continue; }
+		if (b_max_z <= cz0 || b_min_z >= cz0 + cs)
+			continue;
 
 		for (int ix = x0; ix <= x1; ++ix)
 		{
 			const float cx0 = hf_min.x + ix * cs;
 			const float cx1 = cx0 + cs;
-			if (b_max_x <= cx0 || b_min_x >= cx1) { continue; }
+			if (b_max_x <= cx0 || b_min_x >= cx1)
+				continue;
 
 			const float cxc = cx0 + 0.5f * cs;
 			const float c0 = p_a0x * cxc + p_a0z * czc;
-			if (p_r0 > 0.f && (c0 + p_r0 <= p_t0min || c0 - p_r0 >= p_t0max)) { continue; }
+			if (p_r0 > 0.f && (c0 + p_r0 <= p_t0min || c0 - p_r0 >= p_t0max))
+				continue;
 			const float c1 = p_a1x * cxc + p_a1z * czc;
-			if (p_r1 > 0.f && (c1 + p_r1 <= p_t1min || c1 - p_r1 >= p_t1max)) { continue; }
+			if (p_r1 > 0.f && (c1 + p_r1 <= p_t1min || c1 - p_r1 >= p_t1max))
+				continue;
 			const float c2 = p_a2x * cxc + p_a2z * czc;
-			if (p_r2 > 0.f && (c2 + p_r2 <= p_t2min || c2 - p_r2 >= p_t2max)) { continue; }
+			if (p_r2 > 0.f && (c2 + p_r2 <= p_t2min || c2 - p_r2 >= p_t2max))
+				continue;
 
 			float span_min, span_max;
 			if (p_inv_ny != 0.f)
@@ -399,20 +405,23 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 				edgeClipY(v0, v1, cx0, cx1, cz0, cz1, span_min, span_max);
 				edgeClipY(v1, v2, cx0, cx1, cz0, cz1, span_min, span_max);
 				edgeClipY(v2, v0, cx0, cx1, cz0, cz1, span_min, span_max);
-				if (span_min > span_max) { continue; }
+				if (span_min > span_max)
+				continue;
 			}
 
 			// Convert world Y to span indices; clamp to heightfield then to Y chunk
 			const float span_min_rel = span_min - hf_min.y;
 			const float span_max_rel = span_max - hf_min.y;
-			if (span_max_rel < 0.f || span_min_rel > hf_y_range) { continue; }
+			if (span_max_rel < 0.f || span_min_rel > hf_y_range)
+				continue;
 
 			const int y_min = rcClamp((int)floorf(rcMax(span_min_rel, 0.f) * inv_ch), 0, RC_SPAN_MAX_HEIGHT);
 			const int y_max = rcClamp((int)ceilf(rcMin(span_max_rel, hf_y_range)  * inv_ch), y_min + 1, RC_SPAN_MAX_HEIGHT);
 
 			const int b_min = rcMax(y_min, y_base);
 			const int b_max = rcMin(y_max, y_base + BLOCK_Y);
-			if (b_min >= b_max) { continue; }
+			if (b_min >= b_max)
+				continue;
 
 			// OR a run of bits [local_min, local_max) into the column word
 			const int local_min = b_min - y_base;
@@ -438,15 +447,18 @@ static bool extractSpansFromBitBlock(const uint64_t* block, rcHeightfield& hf,
 	for (int dz = 0; dz < BLOCK_XZ; ++dz)
 	{
 		const int iz = tile_z + dz;
-		if (iz >= hf.height) { break; }
+		if (iz >= hf.height)
+			break;
 
 		for (int dx = 0; dx < BLOCK_XZ; ++dx)
 		{
 			const int ix = tile_x + dx;
-			if (ix >= hf.width) { break; }
+			if (ix >= hf.width)
+				break;
 
 			const uint64_t occ = block[dz * BLOCK_XZ + dx];
-			if (!occ) continue;
+			if (!occ)
+				continue;
 
 			uint64_t m = occ;
 			int base = 0;
@@ -463,7 +475,8 @@ static bool extractSpansFromBitBlock(const uint64_t* block, rcHeightfield& hf,
 				const uint16_t s_max = (uint16_t)rcMin(y_base + abs_hi, RC_SPAN_MAX_HEIGHT);
 				if (s_min < s_max && y_base + abs_lo < H)
 				{
-					if (!addSpan(hf, ix, iz, s_min, s_max, area, flag_merge_threshold)) { return false; }
+					if (!addSpan(hf, ix, iz, s_min, s_max, area, flag_merge_threshold))
+					return false;
 				}
 
 				if (lo + run >= 64) { m = 0; break; }
@@ -680,9 +693,8 @@ bool rcRasterizeTriangles(rcContext* context,
 		const int tz_min = rcMax((int)((tri_bounds.min_z[i] - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
 		const int tz_max = rcMin((int)((tri_bounds.max_z[i] - hf_min.z) * inv_cs) / BLOCK_XZ, num_tiles_z - 1);
 		for (int tz = tz_min; tz <= tz_max; ++tz)
-		{
-			for (int tx = tx_min; tx <= tx_max; ++tx) { ++tile_counts[tz * num_tiles_x + tx]; }
-		}
+			for (int tx = tx_min; tx <= tx_max; ++tx)
+				++tile_counts[tz * num_tiles_x + tx];
 	}
 
 	// Prefix sum over tile_counts → per-tile start offsets (tile_starts[t] is the
@@ -696,7 +708,8 @@ bool rcRasterizeTriangles(rcContext* context,
 		return false;
 	}
 	tile_starts[0] = 0;
-	for (int t = 0; t < num_tiles; ++t) { tile_starts[t + 1] = tile_starts[t] + tile_counts[t]; }
+	for (int t = 0; t < num_tiles; ++t)
+		tile_starts[t + 1] = tile_starts[t] + tile_counts[t];
 
 	// Total number of (triangle, tile) pairs across all triangles.
 	const int total_refs = tile_starts[num_tiles];
@@ -717,13 +730,11 @@ bool rcRasterizeTriangles(rcContext* context,
 		const int tz_min = rcMax((int)((tri_bounds.min_z[i] - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
 		const int tz_max = rcMin((int)((tri_bounds.max_z[i] - hf_min.z) * inv_cs) / BLOCK_XZ, num_tiles_z - 1);
 		for (int tz = tz_min; tz <= tz_max; ++tz)
-		{
 			for (int tx = tx_min; tx <= tx_max; ++tx)
 			{
 				const int t = tz * num_tiles_x + tx;
 				tile_tri_list[tile_starts[t] + tile_counts[t]++] = i;
 			}
-		}
 	}
 
 	// --- Allocate the bit block (reused across all tiles and Y-chunks) ---
@@ -759,7 +770,8 @@ bool rcRasterizeTriangles(rcContext* context,
 			const int  t      = tz * num_tiles_x + tx;
 			const int  n_tris = tile_starts[t + 1] - tile_starts[t];  // triangles in this tile
 			const int* tris   = tile_tri_list + tile_starts[t];        // their indices
-			if (n_tris == 0) { continue; }  // no geometry in this tile — skip
+			if (n_tris == 0)
+				continue;  // no geometry in this tile — skip
 
 			for (int y_base = 0; y_base < H && ok; y_base += BLOCK_Y)
 			{
@@ -793,6 +805,7 @@ bool rcRasterizeTriangles(rcContext* context,
 		}
 	}
 
-	if (!ok) { context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory."); }
+	if (!ok)
+		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 	return ok;
 }
