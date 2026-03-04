@@ -258,7 +258,7 @@ static const int BLOCK_XZ = 64;
 static const int BLOCK_Y  = 64;
 
 /// Precomputed per-triangle axis-aligned bounding box.
-struct TriBounds
+struct TriBoundsSoA
 {
 	float minX, maxX, minY, maxY, minZ, maxZ;
 };
@@ -269,7 +269,7 @@ struct TriBounds
 /// cell size cs is computed once here and reused across every tile the
 /// triangle is bucketed into.  v0/v1/v2 are kept for the vertical-triangle
 /// edgeClipY fallback path (inv_ny == 0).
-struct TriPlane
+struct TriPlaneSoA
 {
 	// Vertex positions — needed only by the vertical-triangle edgeClipY path.
 	Vec3 v0, v1, v2;
@@ -301,12 +301,12 @@ struct TriPlane
 
 /// Rasterize one triangle into a 64×64 bit block (one uint64_t column per XZ cell).
 ///
-/// All per-triangle constants come from the precomputed TriBounds and TriPlane;
+/// All per-triangle constants come from the precomputed TriBoundsSoA and TriPlaneSoA;
 /// the tile XZ overlap is guaranteed by the CSR bucketing so only the Y-chunk
 /// check and per-cell SAT are performed here.
 static void voxelizeTriToBitBlock(uint64_t* block,
-                                  const TriBounds& b,
-                                  const TriPlane&  p,
+                                  const TriBoundsSoA& b,
+                                  const TriPlaneSoA&  p,
                                   const Vec3& hf_min, const Vec3& hf_max,
                                   const float cs, const float inv_cs, const float inv_ch,
                                   const int tile_x, const int tile_z, const int y_base)
@@ -481,8 +481,8 @@ bool rcRasterizeTriangles(rcContext* context,
 	// All of these are derived from the triangle vertices and normal once, then
 	// reused for every tile the triangle overlaps.  Paying the upfront cost here
 	// amortises the per-tile work across however many tiles each triangle touches.
-	rcScopedDelete<TriBounds> tri_aabbs ((TriBounds*)rcAlloc(num_tris * (int)sizeof(TriBounds),  RC_ALLOC_TEMP));
-	rcScopedDelete<TriPlane>  tri_planes((TriPlane* )rcAlloc(num_tris * (int)sizeof(TriPlane),   RC_ALLOC_TEMP));
+	rcScopedDelete<TriBoundsSoA> tri_aabbs ((TriBoundsSoA*)rcAlloc(num_tris * (int)sizeof(TriBoundsSoA),  RC_ALLOC_TEMP));
+	rcScopedDelete<TriPlaneSoA>  tri_planes((TriPlaneSoA* )rcAlloc(num_tris * (int)sizeof(TriPlaneSoA),   RC_ALLOC_TEMP));
 	if (tri_aabbs == nullptr || tri_planes == nullptr)
 	{
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
@@ -586,7 +586,7 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	for (int i = 0; i < num_tris; ++i)
 	{
-		const TriBounds& b = tri_aabbs[i];
+		const TriBoundsSoA& b = tri_aabbs[i];
 		// Convert the triangle AABB corners from world space to tile indices,
 		// clamping to the valid tile range.
 		const int tx_min = rcMax((int)((b.minX - hf_min.x) * inv_cs) / BLOCK_XZ, 0);
@@ -626,7 +626,7 @@ bool rcRasterizeTriangles(rcContext* context,
 	memset(tile_counts, 0, num_tiles * sizeof(int));  // reuse as fill cursors
 	for (int i = 0; i < num_tris; ++i)
 	{
-		const TriBounds& b = tri_aabbs[i];
+		const TriBoundsSoA& b = tri_aabbs[i];
 		const int tx_min = rcMax((int)((b.minX - hf_min.x) * inv_cs) / BLOCK_XZ, 0);
 		const int tx_max = rcMin((int)((b.maxX - hf_min.x) * inv_cs) / BLOCK_XZ, num_tiles_x - 1);
 		const int tz_min = rcMax((int)((b.minZ - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
