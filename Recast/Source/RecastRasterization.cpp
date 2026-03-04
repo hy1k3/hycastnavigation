@@ -205,6 +205,20 @@ bool rcAddSpan(rcContext* context, rcHeightfield& heightfield,
 	return true;
 }
 
+/// Liang–Barsky parametric clip against one half-plane.
+/// p: edge direction projected onto the outward normal (< 0 entering, > 0 exiting).
+/// q: signed distance from edge start to boundary (< 0 means start is outside).
+static bool clipHalfPlane(const float p, const float q, float& t_min, float& t_max)
+{
+	if (p < 0.0f)
+		t_min = rcMax(t_min, q / p);
+	else if (p > 0.0f)
+		t_max = rcMin(t_max, q / p);
+	else if (q < 0.0f)
+		return false;
+	return true;
+}
+
 /// Clips a triangle edge (va→vb) to a cell's XZ box and accumulates the Y range
 /// of the clipped portion into [ymin, ymax].  Returns false if no intersection.
 static bool edgeClipY(const Vec3& va, const Vec3& vb,
@@ -215,23 +229,12 @@ static bool edgeClipY(const Vec3& va, const Vec3& vb,
 	const float dx = vb.x - va.x;
 	const float dz = vb.z - va.z;
 
-	if (dx > 1e-7f)        t_min = rcMax(t_min, (cx0 - va.x) / dx);
-	else if (dx < -1e-7f)  t_max = rcMin(t_max, (cx0 - va.x) / dx);
-	else if (va.x < cx0)   return false;
-
-	if (dx > 1e-7f)        t_max = rcMin(t_max, (cx1 - va.x) / dx);
-	else if (dx < -1e-7f)  t_min = rcMax(t_min, (cx1 - va.x) / dx);
-	else if (va.x > cx1)   return false;
-
-	if (dz > 1e-7f)        t_min = rcMax(t_min, (cz0 - va.z) / dz);
-	else if (dz < -1e-7f)  t_max = rcMin(t_max, (cz0 - va.z) / dz);
-	else if (va.z < cz0)   return false;
-
-	if (dz > 1e-7f)        t_max = rcMin(t_max, (cz1 - va.z) / dz);
-	else if (dz < -1e-7f)  t_min = rcMax(t_min, (cz1 - va.z) / dz);
-	else if (va.z > cz1)   return false;
-
-	if (t_min >= t_max) return false;  // zero-length or no intersection — exclude boundary-only touches
+	if (!clipHalfPlane(-dx, va.x - cx0, t_min, t_max) ||  // x >= cx0
+	    !clipHalfPlane( dx, cx1 - va.x, t_min, t_max) ||  // x <= cx1
+	    !clipHalfPlane(-dz, va.z - cz0, t_min, t_max) ||  // z >= cz0
+	    !clipHalfPlane( dz, cz1 - va.z, t_min, t_max) ||  // z <= cz1
+	    t_min >= t_max)
+		return false;
 
 	const float y0 = va.y + t_min * (vb.y - va.y);
 	const float y1 = va.y + t_max * (vb.y - va.y);
