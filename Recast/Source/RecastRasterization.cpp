@@ -257,72 +257,112 @@ static bool edgeClipY(const Vec3& va, const Vec3& vb,
 static const int BLOCK_XZ = 64;
 static const int BLOCK_Y  = 64;
 
-/// Precomputed per-triangle axis-aligned bounding box.
+/// Precomputed per-triangle AABBs in structure-of-arrays layout.
+/// Each field is a pointer into a shared flat buffer of num_tris floats.
+/// SoA layout lets the tile-bucketing loops (which only need X/Z) be
+/// vectorised over multiple triangles without touching unrelated fields.
 struct TriBoundsSoA
 {
-	float minX, maxX, minY, maxY, minZ, maxZ;
+	float* min_x;  // world-space AABB minimum X per triangle
+	float* max_x;  // world-space AABB maximum X per triangle
+	float* min_y;  // world-space AABB minimum Y per triangle
+	float* max_y;  // world-space AABB maximum Y per triangle
+	float* min_z;  // world-space AABB minimum Z per triangle
+	float* max_z;  // world-space AABB maximum Z per triangle
+
+	// Total number of float arrays — used to size the flat backing allocation.
+	static const int num_arrays = 6;
 };
 
-/// Precomputed per-triangle plane + SAT constants.
-///
-/// Everything that depends only on the triangle geometry and the (fixed)
-/// cell size cs is computed once here and reused across every tile the
-/// triangle is bucketed into.  v0/v1/v2 are kept for the vertical-triangle
-/// edgeClipY fallback path (inv_ny == 0).
+/// Precomputed per-triangle plane + SAT constants in structure-of-arrays layout.
+/// Each field is a pointer into a shared flat buffer of num_tris floats.
+/// All constants are derived from the triangle geometry and cell size once,
+/// then reused across every tile the triangle touches.
 struct TriPlaneSoA
 {
 	// Vertex positions — needed only by the vertical-triangle edgeClipY path.
-	Vec3 v0, v1, v2;
+	float* v0x; float* v0y; float* v0z;
+	float* v1x; float* v1y; float* v1z;
+	float* v2x; float* v2y; float* v2z;
 
 	// Plane equation: y(x,z) = (d - nx*x - nz*z) * inv_ny
-	// nx/nz are embedded in the Y-slope offsets below; only d and inv_ny
-	// are stored explicitly because nx/nz would be needed to re-derive them.
-	float nx, nz;       // stored for plane eval: y00 = (d - nx*cx0 - nz*cz0)*inv_ny
-	float d, inv_ny;
+	float* nx;     // stored for plane eval: y00 = (d - nx*cx0 - nz*cz0)*inv_ny
+	float* nz;
+	float* d;      // dot(n, v0) — plane equation constant
+	float* inv_ny; // 1/ny, or 0 for near-vertical triangles
 
 	// 2D SAT edge normals: perp2D(v_{i+1} - v_i) = (-(dz), dx)
-	float a0x, a0z;
-	float a1x, a1z;
-	float a2x, a2z;
+	float* a0x; float* a0z;  // edge 0: v0→v1
+	float* a1x; float* a1z;  // edge 1: v1→v2
+	float* a2x; float* a2z;  // edge 2: v2→v0
 
-	// Triangle interval on each SAT axis
-	float t0min, t0max;
-	float t1min, t1max;
-	float t2min, t2max;
+	// Triangle interval [min, max] projected onto each SAT axis
+	float* t0min; float* t0max;
+	float* t1min; float* t1max;
+	float* t2min; float* t2max;
 
-	// Cell half-width projected onto each SAT axis: (|ax| + |az|) * cs/2
-	float r0, r1, r2;
+	// Cell half-width projected onto each SAT axis: (|ax| + |az|) * cs * 0.5
+	float* r0; float* r1; float* r2;
 
-	// Y range across one cell corner (cx0,cz0) → opposite corner, used to
-	// bound the span from the single corner evaluation y00:
+	// Y range across one cell corner → opposite corner:
 	//   span_min = y00 + min_off,  span_max = y00 + max_off
-	float min_off, max_off;
+	float* min_off; float* max_off;
+
+	// Total number of float arrays — used to size the flat backing allocation.
+	// v0xyz(3) + v1xyz(3) + v2xyz(3) + nx,nz,d,inv_ny(4) +
+	// a0x/z,a1x/z,a2x/z(6) + t0/1/2 min/max(6) + r0/1/2(3) + min/max_off(2) = 30
+	static const int num_arrays = 30;
 };
 
 /// Rasterize one triangle into a 64×64 bit block (one uint64_t column per XZ cell).
 ///
-/// All per-triangle constants come from the precomputed TriBoundsSoA and TriPlaneSoA;
+/// All per-triangle constants are loaded from the SoA arrays by index i;
 /// the tile XZ overlap is guaranteed by the CSR bucketing so only the Y-chunk
 /// check and per-cell SAT are performed here.
 static void voxelizeTriToBitBlock(uint64_t* block,
-                                  const TriBoundsSoA& b,
-                                  const TriPlaneSoA&  p,
+                                  const TriBoundsSoA& bounds, const TriPlaneSoA& planes, const int i,
                                   const Vec3& hf_min, const Vec3& hf_max,
                                   const float cs, const float inv_cs, const float inv_ch,
                                   const int tile_x, const int tile_z, const int y_base)
 {
+	// Load all per-triangle scalars once — they are loop-invariant with respect
+	// to the cell loops below.  Hoisting them here avoids repeated indexed
+	// array loads inside the hot inner loop.
+	const float b_min_x = bounds.min_x[i]; const float b_max_x = bounds.max_x[i];
+	const float b_min_y = bounds.min_y[i]; const float b_max_y = bounds.max_y[i];
+	const float b_min_z = bounds.min_z[i]; const float b_max_z = bounds.max_z[i];
+
+	const float p_inv_ny = planes.inv_ny[i];
+	const float p_nx     = planes.nx[i];     const float p_nz     = planes.nz[i];
+	const float p_d      = planes.d[i];
+	const float p_a0x    = planes.a0x[i];    const float p_a0z    = planes.a0z[i];
+	const float p_a1x    = planes.a1x[i];    const float p_a1z    = planes.a1z[i];
+	const float p_a2x    = planes.a2x[i];    const float p_a2z    = planes.a2z[i];
+	const float p_t0min  = planes.t0min[i];  const float p_t0max  = planes.t0max[i];
+	const float p_t1min  = planes.t1min[i];  const float p_t1max  = planes.t1max[i];
+	const float p_t2min  = planes.t2min[i];  const float p_t2max  = planes.t2max[i];
+	const float p_r0     = planes.r0[i];
+	const float p_r1     = planes.r1[i];
+	const float p_r2     = planes.r2[i];
+	const float p_min_off = planes.min_off[i]; const float p_max_off = planes.max_off[i];
+
+	// Vertices are needed only for the vertical-triangle edgeClipY fallback.
+	const Vec3 v0(planes.v0x[i], planes.v0y[i], planes.v0z[i]);
+	const Vec3 v1(planes.v1x[i], planes.v1y[i], planes.v1z[i]);
+	const Vec3 v2(planes.v2x[i], planes.v2y[i], planes.v2z[i]);
+
 	// Y chunk world bounds
-	const float ch      = 1.0f / inv_ch;
+	const float ch       = 1.0f / inv_ch;
 	const float chunk_y0 = hf_min.y + y_base * ch;
 	const float chunk_y1 = chunk_y0 + BLOCK_Y * ch;
-	if (b.maxY < chunk_y0 || b.minY >= chunk_y1)
+	if (b_max_y < chunk_y0 || b_min_y >= chunk_y1)
 		return;
 
 	// Cell range clamped to this tile
-	const int x0 = rcMax((int)((b.minX - hf_min.x) * inv_cs), tile_x);
-	const int x1 = rcMin((int)((b.maxX - hf_min.x) * inv_cs), tile_x + BLOCK_XZ - 1);
-	const int z0 = rcMax((int)((b.minZ - hf_min.z) * inv_cs), tile_z);
-	const int z1 = rcMin((int)((b.maxZ - hf_min.z) * inv_cs), tile_z + BLOCK_XZ - 1);
+	const int x0 = rcMax((int)((b_min_x - hf_min.x) * inv_cs), tile_x);
+	const int x1 = rcMin((int)((b_max_x - hf_min.x) * inv_cs), tile_x + BLOCK_XZ - 1);
+	const int z0 = rcMax((int)((b_min_z - hf_min.z) * inv_cs), tile_z);
+	const int z1 = rcMin((int)((b_max_z - hf_min.z) * inv_cs), tile_z + BLOCK_XZ - 1);
 
 	const float hf_y_range = hf_max.y - hf_min.y;
 
@@ -330,37 +370,37 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 	{
 		const float cz0 = hf_min.z + iz * cs;
 		const float czc = cz0 + cs * 0.5f;
-		if (b.maxZ <= cz0 || b.minZ >= cz0 + cs) continue;
+		if (b_max_z <= cz0 || b_min_z >= cz0 + cs) continue;
 
 		for (int ix = x0; ix <= x1; ++ix)
 		{
 			const float cx0 = hf_min.x + ix * cs;
 			const float cx1 = cx0 + cs;
-			if (b.maxX <= cx0 || b.minX >= cx1) continue;
+			if (b_max_x <= cx0 || b_min_x >= cx1) continue;
 
 			const float cxc = cx0 + 0.5f * cs;
-			const float c0 = p.a0x * cxc + p.a0z * czc;
-			if (p.r0 > 0.f && (c0 + p.r0 <= p.t0min || c0 - p.r0 >= p.t0max)) continue;
-			const float c1 = p.a1x * cxc + p.a1z * czc;
-			if (p.r1 > 0.f && (c1 + p.r1 <= p.t1min || c1 - p.r1 >= p.t1max)) continue;
-			const float c2 = p.a2x * cxc + p.a2z * czc;
-			if (p.r2 > 0.f && (c2 + p.r2 <= p.t2min || c2 - p.r2 >= p.t2max)) continue;
+			const float c0 = p_a0x * cxc + p_a0z * czc;
+			if (p_r0 > 0.f && (c0 + p_r0 <= p_t0min || c0 - p_r0 >= p_t0max)) continue;
+			const float c1 = p_a1x * cxc + p_a1z * czc;
+			if (p_r1 > 0.f && (c1 + p_r1 <= p_t1min || c1 - p_r1 >= p_t1max)) continue;
+			const float c2 = p_a2x * cxc + p_a2z * czc;
+			if (p_r2 > 0.f && (c2 + p_r2 <= p_t2min || c2 - p_r2 >= p_t2max)) continue;
 
 			float span_min, span_max;
-			if (p.inv_ny != 0.f)
+			if (p_inv_ny != 0.f)
 			{
-				const float y00 = (p.d - p.nx * cx0 - p.nz * cz0) * p.inv_ny;
-				span_min = rcMax(y00 + p.min_off, b.minY);
-				span_max = rcMin(y00 + p.max_off, b.maxY);
+				const float y00 = (p_d - p_nx * cx0 - p_nz * cz0) * p_inv_ny;
+				span_min = rcMax(y00 + p_min_off, b_min_y);
+				span_max = rcMin(y00 + p_max_off, b_max_y);
 			}
 			else
 			{
 				const float cz1 = cz0 + cs;
 				span_min =  1e30f;
 				span_max = -1e30f;
-				edgeClipY(p.v0, p.v1, cx0, cx1, cz0, cz1, span_min, span_max);
-				edgeClipY(p.v1, p.v2, cx0, cx1, cz0, cz1, span_min, span_max);
-				edgeClipY(p.v2, p.v0, cx0, cx1, cz0, cz1, span_min, span_max);
+				edgeClipY(v0, v1, cx0, cx1, cz0, cz1, span_min, span_max);
+				edgeClipY(v1, v2, cx0, cx1, cz0, cz1, span_min, span_max);
+				edgeClipY(v2, v0, cx0, cx1, cz0, cz1, span_min, span_max);
 				if (span_min > span_max) continue;
 			}
 
@@ -481,13 +521,57 @@ bool rcRasterizeTriangles(rcContext* context,
 	// All of these are derived from the triangle vertices and normal once, then
 	// reused for every tile the triangle overlaps.  Paying the upfront cost here
 	// amortises the per-tile work across however many tiles each triangle touches.
-	rcScopedDelete<TriBoundsSoA> tri_aabbs ((TriBoundsSoA*)rcAlloc(num_tris * (int)sizeof(TriBoundsSoA),  RC_ALLOC_TEMP));
-	rcScopedDelete<TriPlaneSoA>  tri_planes((TriPlaneSoA* )rcAlloc(num_tris * (int)sizeof(TriPlaneSoA),   RC_ALLOC_TEMP));
-	if (tri_aabbs == nullptr || tri_planes == nullptr)
+	//
+	// Both structs use SoA layout: one flat buffer holds all num_arrays×num_tris
+	// floats laid out as [array_0[0..N), array_1[0..N), ...].  The struct's
+	// pointer fields are set to the appropriate sub-range of that buffer.
+	rcScopedDelete<float> bounds_buf((float*)rcAlloc(TriBoundsSoA::num_arrays * num_tris * (int)sizeof(float), RC_ALLOC_TEMP));
+	rcScopedDelete<float> planes_buf((float*)rcAlloc(TriPlaneSoA::num_arrays  * num_tris * (int)sizeof(float), RC_ALLOC_TEMP));
+	if (bounds_buf == nullptr || planes_buf == nullptr)
 	{
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 		return false;
 	}
+
+	TriBoundsSoA tri_bounds;
+	tri_bounds.min_x = bounds_buf + 0 * num_tris;
+	tri_bounds.max_x = bounds_buf + 1 * num_tris;
+	tri_bounds.min_y = bounds_buf + 2 * num_tris;
+	tri_bounds.max_y = bounds_buf + 3 * num_tris;
+	tri_bounds.min_z = bounds_buf + 4 * num_tris;
+	tri_bounds.max_z = bounds_buf + 5 * num_tris;
+
+	TriPlaneSoA tri_planes;
+	tri_planes.v0x    = planes_buf +  0 * num_tris;
+	tri_planes.v0y    = planes_buf +  1 * num_tris;
+	tri_planes.v0z    = planes_buf +  2 * num_tris;
+	tri_planes.v1x    = planes_buf +  3 * num_tris;
+	tri_planes.v1y    = planes_buf +  4 * num_tris;
+	tri_planes.v1z    = planes_buf +  5 * num_tris;
+	tri_planes.v2x    = planes_buf +  6 * num_tris;
+	tri_planes.v2y    = planes_buf +  7 * num_tris;
+	tri_planes.v2z    = planes_buf +  8 * num_tris;
+	tri_planes.nx     = planes_buf +  9 * num_tris;
+	tri_planes.nz     = planes_buf + 10 * num_tris;
+	tri_planes.d      = planes_buf + 11 * num_tris;
+	tri_planes.inv_ny = planes_buf + 12 * num_tris;
+	tri_planes.a0x    = planes_buf + 13 * num_tris;
+	tri_planes.a0z    = planes_buf + 14 * num_tris;
+	tri_planes.a1x    = planes_buf + 15 * num_tris;
+	tri_planes.a1z    = planes_buf + 16 * num_tris;
+	tri_planes.a2x    = planes_buf + 17 * num_tris;
+	tri_planes.a2z    = planes_buf + 18 * num_tris;
+	tri_planes.t0min  = planes_buf + 19 * num_tris;
+	tri_planes.t0max  = planes_buf + 20 * num_tris;
+	tri_planes.t1min  = planes_buf + 21 * num_tris;
+	tri_planes.t1max  = planes_buf + 22 * num_tris;
+	tri_planes.t2min  = planes_buf + 23 * num_tris;
+	tri_planes.t2max  = planes_buf + 24 * num_tris;
+	tri_planes.r0     = planes_buf + 25 * num_tris;
+	tri_planes.r1     = planes_buf + 26 * num_tris;
+	tri_planes.r2     = planes_buf + 27 * num_tris;
+	tri_planes.min_off = planes_buf + 28 * num_tris;
+	tri_planes.max_off = planes_buf + 29 * num_tris;
 
 	for (int i = 0; i < num_tris; ++i)
 	{
@@ -498,11 +582,17 @@ bool rcRasterizeTriangles(rcContext* context,
 
 		// Axis-aligned bounding box: component-wise min/max over the three vertices.
 		// Used to cull tiles that can't possibly overlap the triangle.
-		tri_aabbs[i] = {
-			rcMin(rcMin(v0.x, v1.x), v2.x), rcMax(rcMax(v0.x, v1.x), v2.x),
-			rcMin(rcMin(v0.y, v1.y), v2.y), rcMax(rcMax(v0.y, v1.y), v2.y),
-			rcMin(rcMin(v0.z, v1.z), v2.z), rcMax(rcMax(v0.z, v1.z), v2.z),
-		};
+		tri_bounds.min_x[i] = rcMin(rcMin(v0.x, v1.x), v2.x);
+		tri_bounds.max_x[i] = rcMax(rcMax(v0.x, v1.x), v2.x);
+		tri_bounds.min_y[i] = rcMin(rcMin(v0.y, v1.y), v2.y);
+		tri_bounds.max_y[i] = rcMax(rcMax(v0.y, v1.y), v2.y);
+		tri_bounds.min_z[i] = rcMin(rcMin(v0.z, v1.z), v2.z);
+		tri_bounds.max_z[i] = rcMax(rcMax(v0.z, v1.z), v2.z);
+
+		// Vertex positions — stored for the vertical-triangle edgeClipY fallback.
+		tri_planes.v0x[i] = v0.x; tri_planes.v0y[i] = v0.y; tri_planes.v0z[i] = v0.z;
+		tri_planes.v1x[i] = v1.x; tri_planes.v1y[i] = v1.y; tri_planes.v1z[i] = v1.z;
+		tri_planes.v2x[i] = v2.x; tri_planes.v2y[i] = v2.y; tri_planes.v2z[i] = v2.z;
 
 		// Reciprocal of the Y component of the triangle normal.
 		// Used to solve the plane equation for Y given an (X, Z) position:
@@ -511,6 +601,10 @@ bool rcRasterizeTriangles(rcContext* context,
 		// case no Y interpolation is needed (the triangle contributes no solid
 		// voxels in the height direction and is skipped during voxelization).
 		const float inv_ny = (rcAbs(ny) > 1e-6f) ? 1.0f / ny : 0.0f;
+		tri_planes.nx[i]     = nx;
+		tri_planes.nz[i]     = nz;
+		tri_planes.d[i]      = nx*v0.x + ny*v0.y + nz*v0.z;  // dot(n, v0)
+		tri_planes.inv_ny[i] = inv_ny;
 
 		// 2-D edge normals in the XZ plane, one per edge.
 		// Each edge normal (aEx, aEz) points outward from the triangle interior.
@@ -520,6 +614,9 @@ bool rcRasterizeTriangles(rcContext* context,
 		const float a0x = -(v1.z - v0.z), a0z = v1.x - v0.x;
 		const float a1x = -(v2.z - v1.z), a1z = v2.x - v1.x;
 		const float a2x = -(v0.z - v2.z), a2z = v0.x - v2.x;
+		tri_planes.a0x[i] = a0x; tri_planes.a0z[i] = a0z;
+		tri_planes.a1x[i] = a1x; tri_planes.a1z[i] = a1z;
+		tri_planes.a2x[i] = a2x; tri_planes.a2z[i] = a2z;
 
 		// Project the triangle vertices onto each edge normal to get the interval
 		// [min, max] of the triangle along that separating axis.  Only two of the
@@ -528,6 +625,17 @@ bool rcRasterizeTriangles(rcContext* context,
 		const float p00 = a0x*v0.x + a0z*v0.z, p20 = a0x*v2.x + a0z*v2.z;
 		const float p11 = a1x*v1.x + a1z*v1.z, p01 = a1x*v0.x + a1z*v0.z;
 		const float p22 = a2x*v2.x + a2z*v2.z, p12 = a2x*v1.x + a2z*v1.z;
+		tri_planes.t0min[i] = rcMin(p00, p20); tri_planes.t0max[i] = rcMax(p00, p20);
+		tri_planes.t1min[i] = rcMin(p11, p01); tri_planes.t1max[i] = rcMax(p11, p01);
+		tri_planes.t2min[i] = rcMin(p22, p12); tri_planes.t2max[i] = rcMax(p22, p12);
+
+		// Half-widths of a voxel cell projected onto each edge normal.
+		// A cell's interval on axis aE is centred at dot(aE, cellCentre) with
+		// half-width r = (|aEx| + |aEz|) * cs * 0.5.  SAT overlap iff the
+		// triangle interval and cell interval intersect.
+		tri_planes.r0[i] = (rcAbs(a0x) + rcAbs(a0z)) * cs * 0.5f;
+		tri_planes.r1[i] = (rcAbs(a1x) + rcAbs(a1z)) * cs * 0.5f;
+		tri_planes.r2[i] = (rcAbs(a2x) + rcAbs(a2z)) * cs * 0.5f;
 
 		// Y offset range of the triangle plane across one voxel cell in XZ.
 		// Because the plane is tilted, the Y value at the +X corner of a cell
@@ -544,25 +652,8 @@ bool rcRasterizeTriangles(rcContext* context,
 			min_off = rcMin(rcMin(0.f, dy_dx), rcMin(dy_dz, dy_dx + dy_dz));
 			max_off = rcMax(rcMax(0.f, dy_dx), rcMax(dy_dz, dy_dx + dy_dz));
 		}
-
-		tri_planes[i] = {
-			v0, v1, v2,
-			nx, nz,
-			nx*v0.x + ny*v0.y + nz*v0.z,  // d: plane equation constant, dot(n, v0)
-			inv_ny,
-			a0x, a0z, a1x, a1z, a2x, a2z,
-			rcMin(p00, p20), rcMax(p00, p20),  // SAT interval on edge-0 axis
-			rcMin(p11, p01), rcMax(p11, p01),  // SAT interval on edge-1 axis
-			rcMin(p22, p12), rcMax(p22, p12),  // SAT interval on edge-2 axis
-			// Half-widths of a voxel cell projected onto each edge normal.
-			// A cell's interval on axis aE is centred at dot(aE, cellCentre) with
-			// half-width r = (|aEx| + |aEz|) * cs * 0.5.  SAT overlap iff the
-			// triangle interval and cell interval intersect.
-			(rcAbs(a0x) + rcAbs(a0z)) * cs * 0.5f,
-			(rcAbs(a1x) + rcAbs(a1z)) * cs * 0.5f,
-			(rcAbs(a2x) + rcAbs(a2z)) * cs * 0.5f,
-			min_off, max_off,
-		};
+		tri_planes.min_off[i] = min_off;
+		tri_planes.max_off[i] = max_off;
 	}
 
 	// --- Bucket triangles into tiles (CSR format) ---
@@ -586,13 +677,12 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	for (int i = 0; i < num_tris; ++i)
 	{
-		const TriBoundsSoA& b = tri_aabbs[i];
 		// Convert the triangle AABB corners from world space to tile indices,
 		// clamping to the valid tile range.
-		const int tx_min = rcMax((int)((b.minX - hf_min.x) * inv_cs) / BLOCK_XZ, 0);
-		const int tx_max = rcMin((int)((b.maxX - hf_min.x) * inv_cs) / BLOCK_XZ, num_tiles_x - 1);
-		const int tz_min = rcMax((int)((b.minZ - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
-		const int tz_max = rcMin((int)((b.maxZ - hf_min.z) * inv_cs) / BLOCK_XZ, num_tiles_z - 1);
+		const int tx_min = rcMax((int)((tri_bounds.min_x[i] - hf_min.x) * inv_cs) / BLOCK_XZ, 0);
+		const int tx_max = rcMin((int)((tri_bounds.max_x[i] - hf_min.x) * inv_cs) / BLOCK_XZ, num_tiles_x - 1);
+		const int tz_min = rcMax((int)((tri_bounds.min_z[i] - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
+		const int tz_max = rcMin((int)((tri_bounds.max_z[i] - hf_min.z) * inv_cs) / BLOCK_XZ, num_tiles_z - 1);
 		for (int tz = tz_min; tz <= tz_max; ++tz)
 			for (int tx = tx_min; tx <= tx_max; ++tx)
 				++tile_counts[tz * num_tiles_x + tx];
@@ -626,11 +716,10 @@ bool rcRasterizeTriangles(rcContext* context,
 	memset(tile_counts, 0, num_tiles * sizeof(int));  // reuse as fill cursors
 	for (int i = 0; i < num_tris; ++i)
 	{
-		const TriBoundsSoA& b = tri_aabbs[i];
-		const int tx_min = rcMax((int)((b.minX - hf_min.x) * inv_cs) / BLOCK_XZ, 0);
-		const int tx_max = rcMin((int)((b.maxX - hf_min.x) * inv_cs) / BLOCK_XZ, num_tiles_x - 1);
-		const int tz_min = rcMax((int)((b.minZ - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
-		const int tz_max = rcMin((int)((b.maxZ - hf_min.z) * inv_cs) / BLOCK_XZ, num_tiles_z - 1);
+		const int tx_min = rcMax((int)((tri_bounds.min_x[i] - hf_min.x) * inv_cs) / BLOCK_XZ, 0);
+		const int tx_max = rcMin((int)((tri_bounds.max_x[i] - hf_min.x) * inv_cs) / BLOCK_XZ, num_tiles_x - 1);
+		const int tz_min = rcMax((int)((tri_bounds.min_z[i] - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
+		const int tz_max = rcMin((int)((tri_bounds.max_z[i] - hf_min.z) * inv_cs) / BLOCK_XZ, num_tiles_z - 1);
 		for (int tz = tz_min; tz <= tz_max; ++tz)
 			for (int tx = tx_min; tx <= tx_max; ++tx)
 			{
@@ -691,7 +780,7 @@ bool rcRasterizeTriangles(rcContext* context,
 						const int i = tris[ii];
 						if (tri_area_ids[i] != area) continue;
 						voxelizeTriToBitBlock(block,
-						    tri_aabbs[i], tri_planes[i],
+						    tri_bounds, tri_planes, i,
 						    hf_min, hf_max, cs, inv_cs, inv_ch,
 						    tile_x, tile_z, y_base);
 					}
