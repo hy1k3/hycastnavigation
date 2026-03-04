@@ -43,34 +43,34 @@ static rcSpan* allocSpan(rcHeightfield& heightfield)
 	{
 		// Create new page.
 		// Allocate memory for the new pool.
-		rcSpanPool* spanPool = (rcSpanPool*)rcAlloc(sizeof(rcSpanPool), RC_ALLOC_PERM);
-		if (spanPool == nullptr)
+		rcSpanPool* span_pool = (rcSpanPool*)rcAlloc(sizeof(rcSpanPool), RC_ALLOC_PERM);
+		if (span_pool == nullptr)
 		{
 			return nullptr;
 		}
 
 		// Add the pool into the list of pools.
-		spanPool->next = heightfield.pools;
-		heightfield.pools = spanPool;
+		span_pool->next = heightfield.pools;
+		heightfield.pools = span_pool;
 
 		// Add new spans to the free list.
-		rcSpan* freeList = heightfield.freelist;
-		rcSpan* head = &spanPool->items[0];
-		rcSpan* it = &spanPool->items[RC_SPANS_PER_POOL];
+		rcSpan* free_list = heightfield.freelist;
+		rcSpan* head = &span_pool->items[0];
+		rcSpan* it = &span_pool->items[RC_SPANS_PER_POOL];
 		do
 		{
 			--it;
-			it->next = freeList;
-			freeList = it;
+			it->next = free_list;
+			free_list = it;
 		}
 		while (it != head);
 		heightfield.freelist = it;
 	}
 
 	// Pop item from the front of the free list.
-	rcSpan* newSpan = heightfield.freelist;
+	rcSpan* new_span = heightfield.freelist;
 	heightfield.freelist = heightfield.freelist->next;
-	return newSpan;
+	return new_span;
 }
 
 /// Releases the memory used by the span back to the heightfield, so it can be re-used for new spans.
@@ -96,88 +96,88 @@ static void freeSpan(rcHeightfield& heightfield, rcSpan* span)
 /// @param[in]	min					The new span's minimum cell index
 /// @param[in]	max					The new span's maximum cell index
 /// @param[in]	areaID				The new span's area type ID
-/// @param[in]	flagMergeThreshold	How close two spans maximum extents need to be to merge area type IDs
+/// @param[in]	flag_merge_threshold	How close two spans maximum extents need to be to merge area type IDs
 static bool addSpan(rcHeightfield& heightfield,
                     const int x, const int z,
                     const uint16_t min, const uint16_t max,
-                    const uint8_t areaID, const int flagMergeThreshold)
+                    const uint8_t areaID, const int flag_merge_threshold)
 {
 	// Create the new span.
-	rcSpan* newSpan = allocSpan(heightfield);
-	if (newSpan == nullptr)
+	rcSpan* new_span = allocSpan(heightfield);
+	if (new_span == nullptr)
 	{
 		return false;
 	}
-	newSpan->smin = min;
-	newSpan->smax = max;
-	newSpan->area = areaID;
-	newSpan->next = nullptr;
+	new_span->smin = min;
+	new_span->smax = max;
+	new_span->area = areaID;
+	new_span->next = nullptr;
 
-	const int columnIndex = x + z * heightfield.width;
-	rcSpan* previousSpan = nullptr;
-	rcSpan* currentSpan = heightfield.spans[columnIndex];
+	const int column_index = x + z * heightfield.width;
+	rcSpan* previous_span = nullptr;
+	rcSpan* current_span = heightfield.spans[column_index];
 
 	// Insert the new span, possibly merging it with existing spans.
-	while (currentSpan != nullptr)
+	while (current_span != nullptr)
 	{
-		if (currentSpan->smin > newSpan->smax)
+		if (current_span->smin > new_span->smax)
 		{
 			// Current span is completely after the new span, break.
 			break;
 		}
 
-		if (currentSpan->smax < newSpan->smin)
+		if (current_span->smax < new_span->smin)
 		{
 			// Current span is completely before the new span.  Keep going.
-			previousSpan = currentSpan;
-			currentSpan = currentSpan->next;
+			previous_span = current_span;
+			current_span = current_span->next;
 		}
 		else
 		{
 			// The new span overlaps with an existing span.  Merge them.
-			if (currentSpan->smin < newSpan->smin)
+			if (current_span->smin < new_span->smin)
 			{
-				newSpan->smin = currentSpan->smin;
+				new_span->smin = current_span->smin;
 			}
-			if (currentSpan->smax > newSpan->smax)
+			if (current_span->smax > new_span->smax)
 			{
-				newSpan->smax = currentSpan->smax;
+				new_span->smax = current_span->smax;
 			}
 
 			// Merge flags.
-			if (rcAbs((int)newSpan->smax - (int)currentSpan->smax) <= flagMergeThreshold)
+			if (rcAbs((int)new_span->smax - (int)current_span->smax) <= flag_merge_threshold)
 			{
 				// Higher area ID numbers indicate higher resolution priority.
-				newSpan->area = rcMax(newSpan->area, currentSpan->area);
+				new_span->area = rcMax(new_span->area, current_span->area);
 			}
 
-			// Remove the current span since it's now merged with newSpan.
+			// Remove the current span since it's now merged with new_span.
 			// Keep going because there might be other overlapping spans that also need to be merged.
-			rcSpan* next = currentSpan->next;
-			freeSpan(heightfield, currentSpan);
-			if (previousSpan)
+			rcSpan* next = current_span->next;
+			freeSpan(heightfield, current_span);
+			if (previous_span)
 			{
-				previousSpan->next = next;
+				previous_span->next = next;
 			}
 			else
 			{
-				heightfield.spans[columnIndex] = next;
+				heightfield.spans[column_index] = next;
 			}
-			currentSpan = next;
+			current_span = next;
 		}
 	}
 
 	// Insert new span after prev
-	if (previousSpan != nullptr)
+	if (previous_span != nullptr)
 	{
-		newSpan->next = previousSpan->next;
-		previousSpan->next = newSpan;
+		new_span->next = previous_span->next;
+		previous_span->next = new_span;
 	}
 	else
 	{
 		// This span should go before the others in the list
-		newSpan->next = heightfield.spans[columnIndex];
-		heightfield.spans[columnIndex] = newSpan;
+		new_span->next = heightfield.spans[column_index];
+		heightfield.spans[column_index] = new_span;
 	}
 
 	return true;
@@ -185,19 +185,19 @@ static bool addSpan(rcHeightfield& heightfield,
 
 bool rcAddSpan(rcContext* context, rcHeightfield& heightfield,
                const int x, const int z,
-               const uint16_t spanMin, const uint16_t spanMax,
-               const uint8_t areaID, const int flagMergeThreshold)
+               const uint16_t span_min, const uint16_t span_max,
+               const uint8_t areaID, const int flag_merge_threshold)
 {
 	rcAssert(context);
 
 	// Span is zero size or inverted size. Ignore.
-	if (spanMin >= spanMax)
+	if (span_min >= span_max)
 	{
 		context->log(RC_LOG_WARNING, "rcAddSpan: Adding a span with zero or negative size. Ignored.");
 		return true;
 	}
 
-	if (!addSpan(heightfield, x, z, spanMin, spanMax, areaID, flagMergeThreshold))
+	if (!addSpan(heightfield, x, z, span_min, span_max, areaID, flag_merge_threshold))
 	{
 		context->log(RC_LOG_ERROR, "rcAddSpan: Out of memory.");
 		return false;
@@ -212,30 +212,30 @@ static bool edgeClipY(const Vec3& va, const Vec3& vb,
                       const float cx0, const float cx1, const float cz0, const float cz1,
                       float& ymin, float& ymax)
 {
-	float tmin = 0.0f, tmax = 1.0f;
+	float t_min = 0.0f, t_max = 1.0f;
 	const float dx = vb.x - va.x;
 	const float dz = vb.z - va.z;
 
-	if (dx > 1e-7f)        tmin = rcMax(tmin, (cx0 - va.x) / dx);
-	else if (dx < -1e-7f)  tmax = rcMin(tmax, (cx0 - va.x) / dx);
+	if (dx > 1e-7f)        t_min = rcMax(t_min, (cx0 - va.x) / dx);
+	else if (dx < -1e-7f)  t_max = rcMin(t_max, (cx0 - va.x) / dx);
 	else if (va.x < cx0)   return false;
 
-	if (dx > 1e-7f)        tmax = rcMin(tmax, (cx1 - va.x) / dx);
-	else if (dx < -1e-7f)  tmin = rcMax(tmin, (cx1 - va.x) / dx);
+	if (dx > 1e-7f)        t_max = rcMin(t_max, (cx1 - va.x) / dx);
+	else if (dx < -1e-7f)  t_min = rcMax(t_min, (cx1 - va.x) / dx);
 	else if (va.x > cx1)   return false;
 
-	if (dz > 1e-7f)        tmin = rcMax(tmin, (cz0 - va.z) / dz);
-	else if (dz < -1e-7f)  tmax = rcMin(tmax, (cz0 - va.z) / dz);
+	if (dz > 1e-7f)        t_min = rcMax(t_min, (cz0 - va.z) / dz);
+	else if (dz < -1e-7f)  t_max = rcMin(t_max, (cz0 - va.z) / dz);
 	else if (va.z < cz0)   return false;
 
-	if (dz > 1e-7f)        tmax = rcMin(tmax, (cz1 - va.z) / dz);
-	else if (dz < -1e-7f)  tmin = rcMax(tmin, (cz1 - va.z) / dz);
+	if (dz > 1e-7f)        t_max = rcMin(t_max, (cz1 - va.z) / dz);
+	else if (dz < -1e-7f)  t_min = rcMax(t_min, (cz1 - va.z) / dz);
 	else if (va.z > cz1)   return false;
 
-	if (tmin >= tmax) return false;  // zero-length or no intersection — exclude boundary-only touches
+	if (t_min >= t_max) return false;  // zero-length or no intersection — exclude boundary-only touches
 
-	const float y0 = va.y + tmin * (vb.y - va.y);
-	const float y1 = va.y + tmax * (vb.y - va.y);
+	const float y0 = va.y + t_min * (vb.y - va.y);
+	const float y1 = va.y + t_max * (vb.y - va.y);
 	ymin = rcMin(ymin, rcMin(y0, y1));
 	ymax = rcMax(ymax, rcMax(y0, y1));
 	return true;
@@ -248,7 +248,7 @@ static bool edgeClipY(const Vec3& va, const Vec3& vb,
 // into the tiles it overlaps (CSR format).  Each tile then processes only its
 // own triangle subset, so the inner voxelizer loop is O(triangles_in_tile).
 //
-// Each tile×yBase×area combination accumulates into a dense 32 KB bit block
+// Each tile×y_base×area combination accumulates into a dense 32 KB bit block
 // (uint64_t[64×64], one 64-bit word per XZ column encoding 64 Y levels).
 // The block fits in L1 cache; the area ID is known per group so no per-voxel
 // area storage is needed.
@@ -295,7 +295,7 @@ struct TriPlane
 
 	// Y range across one cell corner (cx0,cz0) → opposite corner, used to
 	// bound the span from the single corner evaluation y00:
-	//   spanMin = y00 + min_off,  spanMax = y00 + max_off
+	//   span_min = y00 + min_off,  span_max = y00 + max_off
 	float min_off, max_off;
 };
 
@@ -307,34 +307,34 @@ struct TriPlane
 static void voxelizeTriToBitBlock(uint64_t* block,
                                   const TriBounds& b,
                                   const TriPlane&  p,
-                                  const Vec3& hfMin, const Vec3& hfMax,
-                                  const float cs, const float ics, const float ich,
-                                  const int tileX, const int tileZ, const int yBase)
+                                  const Vec3& hf_min, const Vec3& hf_max,
+                                  const float cs, const float inv_cs, const float inv_ch,
+                                  const int tile_x, const int tile_z, const int y_base)
 {
 	// Y chunk world bounds
-	const float ch      = 1.0f / ich;
-	const float chunkY0 = hfMin.y + yBase * ch;
-	const float chunkY1 = chunkY0 + BLOCK_Y * ch;
-	if (b.maxY < chunkY0 || b.minY >= chunkY1)
+	const float ch      = 1.0f / inv_ch;
+	const float chunk_y0 = hf_min.y + y_base * ch;
+	const float chunk_y1 = chunk_y0 + BLOCK_Y * ch;
+	if (b.maxY < chunk_y0 || b.minY >= chunk_y1)
 		return;
 
 	// Cell range clamped to this tile
-	const int x0 = rcMax((int)((b.minX - hfMin.x) * ics), tileX);
-	const int x1 = rcMin((int)((b.maxX - hfMin.x) * ics), tileX + BLOCK_XZ - 1);
-	const int z0 = rcMax((int)((b.minZ - hfMin.z) * ics), tileZ);
-	const int z1 = rcMin((int)((b.maxZ - hfMin.z) * ics), tileZ + BLOCK_XZ - 1);
+	const int x0 = rcMax((int)((b.minX - hf_min.x) * inv_cs), tile_x);
+	const int x1 = rcMin((int)((b.maxX - hf_min.x) * inv_cs), tile_x + BLOCK_XZ - 1);
+	const int z0 = rcMax((int)((b.minZ - hf_min.z) * inv_cs), tile_z);
+	const int z1 = rcMin((int)((b.maxZ - hf_min.z) * inv_cs), tile_z + BLOCK_XZ - 1);
 
-	const float by = hfMax.y - hfMin.y;
+	const float by = hf_max.y - hf_min.y;
 
 	for (int iz = z0; iz <= z1; ++iz)
 	{
-		const float cz0 = hfMin.z + iz * cs;
+		const float cz0 = hf_min.z + iz * cs;
 		const float czc = cz0 + cs * 0.5f;
 		if (b.maxZ <= cz0 || b.minZ >= cz0 + cs) continue;
 
 		for (int ix = x0; ix <= x1; ++ix)
 		{
-			const float cx0 = hfMin.x + ix * cs;
+			const float cx0 = hf_min.x + ix * cs;
 			const float cx1 = cx0 + cs;
 			if (b.maxX <= cx0 || b.minX >= cx1) continue;
 
@@ -346,42 +346,42 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 			const float c2 = p.a2x * cxc + p.a2z * czc;
 			if (p.r2 > 0.f && (c2 + p.r2 <= p.t2min || c2 - p.r2 >= p.t2max)) continue;
 
-			float spanMin, spanMax;
+			float span_min, span_max;
 			if (p.inv_ny != 0.f)
 			{
 				const float y00 = (p.d - p.nx * cx0 - p.nz * cz0) * p.inv_ny;
-				spanMin = rcMax(y00 + p.min_off, b.minY);
-				spanMax = rcMin(y00 + p.max_off, b.maxY);
+				span_min = rcMax(y00 + p.min_off, b.minY);
+				span_max = rcMin(y00 + p.max_off, b.maxY);
 			}
 			else
 			{
 				const float cz1 = cz0 + cs;
-				spanMin =  1e30f;
-				spanMax = -1e30f;
-				edgeClipY(p.v0, p.v1, cx0, cx1, cz0, cz1, spanMin, spanMax);
-				edgeClipY(p.v1, p.v2, cx0, cx1, cz0, cz1, spanMin, spanMax);
-				edgeClipY(p.v2, p.v0, cx0, cx1, cz0, cz1, spanMin, spanMax);
-				if (spanMin > spanMax) continue;
+				span_min =  1e30f;
+				span_max = -1e30f;
+				edgeClipY(p.v0, p.v1, cx0, cx1, cz0, cz1, span_min, span_max);
+				edgeClipY(p.v1, p.v2, cx0, cx1, cz0, cz1, span_min, span_max);
+				edgeClipY(p.v2, p.v0, cx0, cx1, cz0, cz1, span_min, span_max);
+				if (span_min > span_max) continue;
 			}
 
 			// Convert world Y to span indices; clamp to heightfield then to Y chunk
-			const float smRel = spanMin - hfMin.y;
-			const float sxRel = spanMax - hfMin.y;
-			if (sxRel < 0.f || smRel > by) continue;
+			const float sm_rel = span_min - hf_min.y;
+			const float sx_rel = span_max - hf_min.y;
+			if (sx_rel < 0.f || sm_rel > by) continue;
 
-			const int yMin = rcClamp((int)floorf(rcMax(smRel, 0.f) * ich), 0, RC_SPAN_MAX_HEIGHT);
-			const int yMax = rcClamp((int)ceilf(rcMin(sxRel, by)  * ich), yMin + 1, RC_SPAN_MAX_HEIGHT);
+			const int y_min = rcClamp((int)floorf(rcMax(sm_rel, 0.f) * inv_ch), 0, RC_SPAN_MAX_HEIGHT);
+			const int y_max = rcClamp((int)ceilf(rcMin(sx_rel, by)  * inv_ch), y_min + 1, RC_SPAN_MAX_HEIGHT);
 
-			const int bMin = rcMax(yMin, yBase);
-			const int bMax = rcMin(yMax, yBase + BLOCK_Y);
-			if (bMin >= bMax) continue;
+			const int b_min = rcMax(y_min, y_base);
+			const int b_max = rcMin(y_max, y_base + BLOCK_Y);
+			if (b_min >= b_max) continue;
 
-			// OR a run of bits [localMin, localMax) into the column word
-			const int localMin = bMin - yBase;
-			const int localMax = bMax - yBase;
-			const int len = localMax - localMin;
-			const uint64_t mask = (len >= 64) ? ~0ULL : ((1ULL << len) - 1) << localMin;
-			block[(iz - tileZ) * BLOCK_XZ + (ix - tileX)] |= mask;
+			// OR a run of bits [local_min, local_max) into the column word
+			const int local_min = b_min - y_base;
+			const int local_max = b_max - y_base;
+			const int len = local_max - local_min;
+			const uint64_t mask = (len >= 64) ? ~0ULL : ((1ULL << len) - 1) << local_min;
+			block[(iz - tile_z) * BLOCK_XZ + (ix - tile_x)] |= mask;
 		}
 	}
 }
@@ -392,19 +392,19 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 /// supplied by the caller (known per triangle group).  The column word IS
 /// the occupancy mask — no conversion step needed.
 static bool extractSpansFromBitBlock(const uint64_t* block, rcHeightfield& hf,
-                                     const int tileX, const int tileZ,
-                                     const int yBase, const int H,
+                                     const int tile_x, const int tile_z,
+                                     const int y_base, const int H,
                                      const uint8_t area,
-                                     const int flagMergeThreshold)
+                                     const int flag_merge_threshold)
 {
 	for (int dz = 0; dz < BLOCK_XZ; ++dz)
 	{
-		const int iz = tileZ + dz;
+		const int iz = tile_z + dz;
 		if (iz >= hf.height) break;
 
 		for (int dx = 0; dx < BLOCK_XZ; ++dx)
 		{
-			const int ix = tileX + dx;
+			const int ix = tile_x + dx;
 			if (ix >= hf.width) break;
 
 			const uint64_t occ = block[dz * BLOCK_XZ + dx];
@@ -421,11 +421,11 @@ static bool extractSpansFromBitBlock(const uint64_t* block, rcHeightfield& hf,
 				                                      : rcCtz64(~from_lo);
 				const int abs_hi = abs_lo + run;
 
-				const uint16_t smin = (uint16_t)rcMin(yBase + abs_lo, RC_SPAN_MAX_HEIGHT);
-				const uint16_t smax = (uint16_t)rcMin(yBase + abs_hi, RC_SPAN_MAX_HEIGHT);
-				if (smin < smax && yBase + abs_lo < H)
+				const uint16_t s_min = (uint16_t)rcMin(y_base + abs_lo, RC_SPAN_MAX_HEIGHT);
+				const uint16_t s_max = (uint16_t)rcMin(y_base + abs_hi, RC_SPAN_MAX_HEIGHT);
+				if (s_min < s_max && y_base + abs_lo < H)
 				{
-					if (!addSpan(hf, ix, iz, smin, smax, area, flagMergeThreshold))
+					if (!addSpan(hf, ix, iz, s_min, s_max, area, flag_merge_threshold))
 						return false;
 				}
 
@@ -440,8 +440,8 @@ static bool extractSpansFromBitBlock(const uint64_t* block, rcHeightfield& hf,
 
 bool rcRasterizeTriangles(rcContext* context,
                           const TriChunk& chunk, const NormalChunk& normals,
-                          const int numTris, const uint8_t* triAreaIDs,
-                          rcHeightfield& heightfield, const int flagMergeThreshold)
+                          const int num_tris, const uint8_t* tri_area_ids,
+                          rcHeightfield& heightfield, const int flag_merge_threshold)
 {
 	rcAssert(context != nullptr);
 
@@ -450,46 +450,46 @@ bool rcRasterizeTriangles(rcContext* context,
 	// Cache heightfield parameters into locals for readability and to avoid
 	// repeated pointer dereferences in the inner loops.
 	const float cs    = heightfield.cs;   // cell size in XZ (metres per voxel column)
-	const float ics   = 1.0f / cs;        // reciprocal: world units → voxel column index
-	const float ich   = 1.0f / heightfield.ch;  // reciprocal: world Y → voxel row index
-	const Vec3& hfMin = heightfield.bmin;  // world-space minimum corner of the heightfield
-	const Vec3& hfMax = heightfield.bmax;  // world-space maximum corner
-	const int   hfW   = heightfield.width;   // number of columns in X
-	const int   hfH   = heightfield.height;  // number of columns in Z
+	const float inv_cs   = 1.0f / cs;        // reciprocal: world units → voxel column index
+	const float inv_ch   = 1.0f / heightfield.ch;  // reciprocal: world Y → voxel row index
+	const Vec3& hf_min = heightfield.bmin;  // world-space minimum corner of the heightfield
+	const Vec3& hf_max = heightfield.bmax;  // world-space maximum corner
+	const int   hf_width   = heightfield.width;   // number of columns in X
+	const int   hf_height   = heightfield.height;  // number of columns in Z
 
 	// Total voxel height of the heightfield, clamped to the maximum span height
 	// representable in an rcSpan (RC_SPAN_MAX_HEIGHT).  At least 1 so the Y-chunk
 	// loop below always executes at least once, even for a completely flat field.
-	const int H = rcMax(rcMin((int)ceilf((hfMax.y - hfMin.y) * ich), RC_SPAN_MAX_HEIGHT), 1);
+	const int H = rcMax(rcMin((int)ceilf((hf_max.y - hf_min.y) * inv_ch), RC_SPAN_MAX_HEIGHT), 1);
 
 	// --- Collect distinct area IDs present in this batch ---
 	// The main rasterization loop processes one area at a time so that spans from
-	// different areas stay separate until addSpan merges them with flagMergeThreshold.
+	// different areas stay separate until addSpan merges them with flag_merge_threshold.
 	// Collecting distinct IDs here avoids scanning all triangles once per area in
 	// the inner loop.  The array is small (at most 256 entries) so it lives on the
 	// stack.
 	bool seen[256] = {};
-	uint8_t distinctAreas[256];
-	int numDistinct = 0;
-	for (int i = 0; i < numTris; ++i)
+	uint8_t distinct_areas[256];
+	int num_distinct = 0;
+	for (int i = 0; i < num_tris; ++i)
 	{
-		const uint8_t a = triAreaIDs[i];
-		if (!seen[a]) { seen[a] = true; distinctAreas[numDistinct++] = a; }
+		const uint8_t a = tri_area_ids[i];
+		if (!seen[a]) { seen[a] = true; distinct_areas[num_distinct++] = a; }
 	}
 
 	// --- Precompute per-triangle AABBs and plane/SAT constants ---
 	// All of these are derived from the triangle vertices and normal once, then
 	// reused for every tile the triangle overlaps.  Paying the upfront cost here
 	// amortises the per-tile work across however many tiles each triangle touches.
-	rcScopedDelete<TriBounds> triAABBs ((TriBounds*)rcAlloc(numTris * (int)sizeof(TriBounds),  RC_ALLOC_TEMP));
-	rcScopedDelete<TriPlane>  triPlanes((TriPlane* )rcAlloc(numTris * (int)sizeof(TriPlane),   RC_ALLOC_TEMP));
-	if (triAABBs == nullptr || triPlanes == nullptr)
+	rcScopedDelete<TriBounds> tri_aabbs ((TriBounds*)rcAlloc(num_tris * (int)sizeof(TriBounds),  RC_ALLOC_TEMP));
+	rcScopedDelete<TriPlane>  tri_planes((TriPlane* )rcAlloc(num_tris * (int)sizeof(TriPlane),   RC_ALLOC_TEMP));
+	if (tri_aabbs == nullptr || tri_planes == nullptr)
 	{
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 		return false;
 	}
 
-	for (int i = 0; i < numTris; ++i)
+	for (int i = 0; i < num_tris; ++i)
 	{
 		const Vec3 v0(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]);
 		const Vec3 v1(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]);
@@ -498,7 +498,7 @@ bool rcRasterizeTriangles(rcContext* context,
 
 		// Axis-aligned bounding box: component-wise min/max over the three vertices.
 		// Used to cull tiles that can't possibly overlap the triangle.
-		triAABBs[i] = {
+		tri_aabbs[i] = {
 			rcMin(rcMin(v0.x, v1.x), v2.x), rcMax(rcMax(v0.x, v1.x), v2.x),
 			rcMin(rcMin(v0.y, v1.y), v2.y), rcMax(rcMax(v0.y, v1.y), v2.y),
 			rcMin(rcMin(v0.z, v1.z), v2.z), rcMax(rcMax(v0.z, v1.z), v2.z),
@@ -545,7 +545,7 @@ bool rcRasterizeTriangles(rcContext* context,
 			max_off = rcMax(rcMax(0.f, dy_dx), rcMax(dy_dz, dy_dx + dy_dz));
 		}
 
-		triPlanes[i] = {
+		tri_planes[i] = {
 			v0, v1, v2,
 			nx, nz,
 			nx*v0.x + ny*v0.y + nz*v0.z,  // d: plane equation constant, dot(n, v0)
@@ -571,83 +571,83 @@ bool rcRasterizeTriangles(rcContext* context,
 	// triangle's AABB.  Storing these associations in CSR (compressed sparse row)
 	// format — a flat index array with per-tile start offsets — avoids dynamic
 	// allocation per tile and gives cache-friendly sequential access in the main loop.
-	const int numTilesX = (hfW + BLOCK_XZ - 1) / BLOCK_XZ;
-	const int numTilesZ = (hfH + BLOCK_XZ - 1) / BLOCK_XZ;
-	const int numTiles  = numTilesX * numTilesZ;
+	const int num_tiles_x = (hf_width + BLOCK_XZ - 1) / BLOCK_XZ;
+	const int num_tiles_z = (hf_height + BLOCK_XZ - 1) / BLOCK_XZ;
+	const int num_tiles  = num_tiles_x * num_tiles_z;
 
 	// Pass 1: count how many triangles reference each tile.
-	rcScopedDelete<int> tileCounts((int*)rcAlloc(numTiles * (int)sizeof(int), RC_ALLOC_TEMP));
-	if (tileCounts == nullptr)
+	rcScopedDelete<int> tile_counts((int*)rcAlloc(num_tiles * (int)sizeof(int), RC_ALLOC_TEMP));
+	if (tile_counts == nullptr)
 	{
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 		return false;
 	}
-	memset(tileCounts, 0, numTiles * sizeof(int));
+	memset(tile_counts, 0, num_tiles * sizeof(int));
 
-	for (int i = 0; i < numTris; ++i)
+	for (int i = 0; i < num_tris; ++i)
 	{
-		const TriBounds& b = triAABBs[i];
+		const TriBounds& b = tri_aabbs[i];
 		// Convert the triangle AABB corners from world space to tile indices,
 		// clamping to the valid tile range.
-		const int txMin = rcMax((int)((b.minX - hfMin.x) * ics) / BLOCK_XZ, 0);
-		const int txMax = rcMin((int)((b.maxX - hfMin.x) * ics) / BLOCK_XZ, numTilesX - 1);
-		const int tzMin = rcMax((int)((b.minZ - hfMin.z) * ics) / BLOCK_XZ, 0);
-		const int tzMax = rcMin((int)((b.maxZ - hfMin.z) * ics) / BLOCK_XZ, numTilesZ - 1);
-		for (int tz = tzMin; tz <= tzMax; ++tz)
-			for (int tx = txMin; tx <= txMax; ++tx)
-				++tileCounts[tz * numTilesX + tx];
+		const int tx_min = rcMax((int)((b.minX - hf_min.x) * inv_cs) / BLOCK_XZ, 0);
+		const int tx_max = rcMin((int)((b.maxX - hf_min.x) * inv_cs) / BLOCK_XZ, num_tiles_x - 1);
+		const int tz_min = rcMax((int)((b.minZ - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
+		const int tz_max = rcMin((int)((b.maxZ - hf_min.z) * inv_cs) / BLOCK_XZ, num_tiles_z - 1);
+		for (int tz = tz_min; tz <= tz_max; ++tz)
+			for (int tx = tx_min; tx <= tx_max; ++tx)
+				++tile_counts[tz * num_tiles_x + tx];
 	}
 
-	// Prefix sum over tileCounts → per-tile start offsets (tileStarts[t] is the
-	// index into tileTriList where tile t's triangle list begins).
-	// tileStarts has numTiles + 1 entries so tileStarts[t+1] - tileStarts[t]
+	// Prefix sum over tile_counts → per-tile start offsets (tile_starts[t] is the
+	// index into tile_tri_list where tile t's triangle list begins).
+	// tile_starts has num_tiles + 1 entries so tile_starts[t+1] - tile_starts[t]
 	// gives the count for tile t without a special-case for the last tile.
-	rcScopedDelete<int> tileStarts((int*)rcAlloc((numTiles + 1) * (int)sizeof(int), RC_ALLOC_TEMP));
-	if (tileStarts == nullptr)
+	rcScopedDelete<int> tile_starts((int*)rcAlloc((num_tiles + 1) * (int)sizeof(int), RC_ALLOC_TEMP));
+	if (tile_starts == nullptr)
 	{
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 		return false;
 	}
-	tileStarts[0] = 0;
-	for (int t = 0; t < numTiles; ++t)
-		tileStarts[t + 1] = tileStarts[t] + tileCounts[t];
+	tile_starts[0] = 0;
+	for (int t = 0; t < num_tiles; ++t)
+		tile_starts[t + 1] = tile_starts[t] + tile_counts[t];
 
 	// Total number of (triangle, tile) pairs across all triangles.
-	const int totalRefs = tileStarts[numTiles];
+	const int total_refs = tile_starts[num_tiles];
 
-	// Pass 2: fill tileTriList with triangle indices, using tileCounts as
+	// Pass 2: fill tile_tri_list with triangle indices, using tile_counts as
 	// running write cursors (reset to 0 and incremented as each entry is written).
-	rcScopedDelete<int> tileTriList(totalRefs > 0 ? (int*)rcAlloc(totalRefs * (int)sizeof(int), RC_ALLOC_TEMP) : nullptr);
-	if (totalRefs > 0 && tileTriList == nullptr)
+	rcScopedDelete<int> tile_tri_list(total_refs > 0 ? (int*)rcAlloc(total_refs * (int)sizeof(int), RC_ALLOC_TEMP) : nullptr);
+	if (total_refs > 0 && tile_tri_list == nullptr)
 	{
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
 		return false;
 	}
-	memset(tileCounts, 0, numTiles * sizeof(int));  // reuse as fill cursors
-	for (int i = 0; i < numTris; ++i)
+	memset(tile_counts, 0, num_tiles * sizeof(int));  // reuse as fill cursors
+	for (int i = 0; i < num_tris; ++i)
 	{
-		const TriBounds& b = triAABBs[i];
-		const int txMin = rcMax((int)((b.minX - hfMin.x) * ics) / BLOCK_XZ, 0);
-		const int txMax = rcMin((int)((b.maxX - hfMin.x) * ics) / BLOCK_XZ, numTilesX - 1);
-		const int tzMin = rcMax((int)((b.minZ - hfMin.z) * ics) / BLOCK_XZ, 0);
-		const int tzMax = rcMin((int)((b.maxZ - hfMin.z) * ics) / BLOCK_XZ, numTilesZ - 1);
-		for (int tz = tzMin; tz <= tzMax; ++tz)
-			for (int tx = txMin; tx <= txMax; ++tx)
+		const TriBounds& b = tri_aabbs[i];
+		const int tx_min = rcMax((int)((b.minX - hf_min.x) * inv_cs) / BLOCK_XZ, 0);
+		const int tx_max = rcMin((int)((b.maxX - hf_min.x) * inv_cs) / BLOCK_XZ, num_tiles_x - 1);
+		const int tz_min = rcMax((int)((b.minZ - hf_min.z) * inv_cs) / BLOCK_XZ, 0);
+		const int tz_max = rcMin((int)((b.maxZ - hf_min.z) * inv_cs) / BLOCK_XZ, num_tiles_z - 1);
+		for (int tz = tz_min; tz <= tz_max; ++tz)
+			for (int tx = tx_min; tx <= tx_max; ++tx)
 			{
-				const int t = tz * numTilesX + tx;
-				tileTriList[tileStarts[t] + tileCounts[t]++] = i;
+				const int t = tz * num_tiles_x + tx;
+				tile_tri_list[tile_starts[t] + tile_counts[t]++] = i;
 			}
 	}
 
 	// --- Allocate the bit block (reused across all tiles and Y-chunks) ---
 	// The block is a BLOCK_XZ × BLOCK_XZ grid of uint64_t words.  Each word
 	// covers one XZ column over BLOCK_Y (= 64) voxel rows, with bit k set when
-	// voxel row (yBase + k) within that column is occupied by solid geometry.
+	// voxel row (y_base + k) within that column is occupied by solid geometry.
 	// A single block therefore covers a BLOCK_XZ × BLOCK_Y × BLOCK_XZ region
-	// of the heightfield.  It is zeroed before each (tile, yBase, area) triple
+	// of the heightfield.  It is zeroed before each (tile, y_base, area) triple
 	// and reused to avoid repeated allocations in the innermost loops.
-	const int blockBytes = BLOCK_XZ * BLOCK_XZ * (int)sizeof(uint64_t);
-	rcScopedDelete<uint64_t> block((uint64_t*)rcAlloc(blockBytes, RC_ALLOC_TEMP));
+	const int block_bytes = BLOCK_XZ * BLOCK_XZ * (int)sizeof(uint64_t);
+	rcScopedDelete<uint64_t> block((uint64_t*)rcAlloc(block_bytes, RC_ALLOC_TEMP));
 	if (block == nullptr)
 	{
 		context->log(RC_LOG_ERROR, "rcRasterizeTriangles: Out of memory.");
@@ -657,50 +657,50 @@ bool rcRasterizeTriangles(rcContext* context,
 	// --- Main loop: tile × Y-chunk × area ---
 	// The three-level nesting keeps working-set sizes small:
 	//   Outer (tile): selects the subset of triangles relevant to this XZ region.
-	//   Middle (yBase): slices the vertical range into BLOCK_Y-voxel chunks so
+	//   Middle (y_base): slices the vertical range into BLOCK_Y-voxel chunks so
 	//     the bit block fits in L1/L2 cache regardless of heightfield height.
 	//   Inner (area): processes one area ID at a time so that spans written for
 	//     different areas are kept separate until addSpan merges touching spans
-	//     of the same area with flagMergeThreshold.
+	//     of the same area with flag_merge_threshold.
 	bool ok = true;
-	for (int tz = 0; tz < numTilesZ && ok; ++tz)
+	for (int tz = 0; tz < num_tiles_z && ok; ++tz)
 	{
-		const int tileZ = tz * BLOCK_XZ;  // Z origin of this tile in voxel columns
-		for (int tx = 0; tx < numTilesX && ok; ++tx)
+		const int tile_z = tz * BLOCK_XZ;  // Z origin of this tile in voxel columns
+		for (int tx = 0; tx < num_tiles_x && ok; ++tx)
 		{
-			const int tileX = tx * BLOCK_XZ;  // X origin of this tile in voxel columns
-			const int  t     = tz * numTilesX + tx;
-			const int  nTris = tileStarts[t + 1] - tileStarts[t];  // triangles in this tile
-			const int* tris  = tileTriList + tileStarts[t];         // their indices
-			if (nTris == 0) continue;  // no geometry in this tile — skip
+			const int tile_x = tx * BLOCK_XZ;  // X origin of this tile in voxel columns
+			const int  t     = tz * num_tiles_x + tx;
+			const int  n_tris = tile_starts[t + 1] - tile_starts[t];  // triangles in this tile
+			const int* tris  = tile_tri_list + tile_starts[t];         // their indices
+			if (n_tris == 0) continue;  // no geometry in this tile — skip
 
-			for (int yBase = 0; yBase < H && ok; yBase += BLOCK_Y)
+			for (int y_base = 0; y_base < H && ok; y_base += BLOCK_Y)
 			{
-				for (int a = 0; a < numDistinct && ok; ++a)
+				for (int a = 0; a < num_distinct && ok; ++a)
 				{
-					const uint8_t area = distinctAreas[a];
+					const uint8_t area = distinct_areas[a];
 
-					// Clear all voxel bits for this (tile, yBase, area) triple.
-					memset(block, 0, blockBytes);
+					// Clear all voxel bits for this (tile, y_base, area) triple.
+					memset(block, 0, block_bytes);
 
 					// Voxelize every triangle of this area into the bit block.
 					// Triangles of other areas are skipped so their solid volume
 					// doesn't bleed into this area's span list.
-					for (int ii = 0; ii < nTris; ++ii)
+					for (int ii = 0; ii < n_tris; ++ii)
 					{
 						const int i = tris[ii];
-						if (triAreaIDs[i] != area) continue;
+						if (tri_area_ids[i] != area) continue;
 						voxelizeTriToBitBlock(block,
-						    triAABBs[i], triPlanes[i],
-						    hfMin, hfMax, cs, ics, ich,
-						    tileX, tileZ, yBase);
+						    tri_aabbs[i], tri_planes[i],
+						    hf_min, hf_max, cs, inv_cs, inv_ch,
+						    tile_x, tile_z, y_base);
 					}
 
 					// Convert the occupied bit runs in the block to rcSpan entries
 					// and merge them into the heightfield, tagged with this area ID.
 					ok = extractSpansFromBitBlock(block, heightfield,
-					                              tileX, tileZ, yBase, H,
-					                              area, flagMergeThreshold);
+					                              tile_x, tile_z, y_base, H,
+					                              area, flag_merge_threshold);
 				}
 			}
 		}
