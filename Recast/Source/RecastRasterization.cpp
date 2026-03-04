@@ -589,15 +589,15 @@ bool rcRasterizeTriangles(rcContext* context,
 
 	for (int i = 0; i < num_tris; ++i)
 	{
-		const Vec3 v0(chunk.v0x[i], chunk.v0y[i], chunk.v0z[i]);
-		const Vec3 v1(chunk.v1x[i], chunk.v1y[i], chunk.v1z[i]);
-		const Vec3 v2(chunk.v2x[i], chunk.v2y[i], chunk.v2z[i]);
+		const float v0x = chunk.v0x[i], v0y = chunk.v0y[i], v0z = chunk.v0z[i];
+		const float v1x = chunk.v1x[i], v1y = chunk.v1y[i], v1z = chunk.v1z[i];
+		const float v2x = chunk.v2x[i], v2y = chunk.v2y[i], v2z = chunk.v2z[i];
 		const float nx = normals.nx[i], ny = normals.ny[i], nz = normals.nz[i];
 
 		// Vertex positions — stored for the vertical-triangle edgeClipY fallback.
-		tri_planes.v0x[i] = v0.x; tri_planes.v0y[i] = v0.y; tri_planes.v0z[i] = v0.z;
-		tri_planes.v1x[i] = v1.x; tri_planes.v1y[i] = v1.y; tri_planes.v1z[i] = v1.z;
-		tri_planes.v2x[i] = v2.x; tri_planes.v2y[i] = v2.y; tri_planes.v2z[i] = v2.z;
+		tri_planes.v0x[i] = v0x; tri_planes.v0y[i] = v0y; tri_planes.v0z[i] = v0z;
+		tri_planes.v1x[i] = v1x; tri_planes.v1y[i] = v1y; tri_planes.v1z[i] = v1z;
+		tri_planes.v2x[i] = v2x; tri_planes.v2y[i] = v2y; tri_planes.v2z[i] = v2z;
 
 		// Reciprocal of the Y component of the triangle normal.
 		// Used to solve the plane equation for Y given an (X, Z) position:
@@ -608,7 +608,7 @@ bool rcRasterizeTriangles(rcContext* context,
 		const float inv_ny = (rcAbs(ny) > 1e-6f) ? 1.0f / ny : 0.0f;
 		tri_planes.nx[i]     = nx;
 		tri_planes.nz[i]     = nz;
-		tri_planes.d[i]      = nx*v0.x + ny*v0.y + nz*v0.z;  // dot(n, v0)
+		tri_planes.d[i]      = nx*v0x + ny*v0y + nz*v0z;  // dot(n, v0)
 		tri_planes.inv_ny[i] = inv_ny;
 
 		// 2-D edge normals in the XZ plane, one per edge.
@@ -616,9 +616,9 @@ bool rcRasterizeTriangles(rcContext* context,
 		// These are the separating axes used by the SAT overlap test between the
 		// triangle and each BLOCK_XZ × BLOCK_XZ voxel column cell.
 		//   edge 0: v0→v1,  edge 1: v1→v2,  edge 2: v2→v0
-		const float a0x = -(v1.z - v0.z), a0z = v1.x - v0.x;
-		const float a1x = -(v2.z - v1.z), a1z = v2.x - v1.x;
-		const float a2x = -(v0.z - v2.z), a2z = v0.x - v2.x;
+		const float a0x = -(v1z - v0z), a0z = v1x - v0x;
+		const float a1x = -(v2z - v1z), a1z = v2x - v1x;
+		const float a2x = -(v0z - v2z), a2z = v0x - v2x;
 		tri_planes.a0x[i] = a0x; tri_planes.a0z[i] = a0z;
 		tri_planes.a1x[i] = a1x; tri_planes.a1z[i] = a1z;
 		tri_planes.a2x[i] = a2x; tri_planes.a2z[i] = a2z;
@@ -627,9 +627,9 @@ bool rcRasterizeTriangles(rcContext* context,
 		// [min, max] of the triangle along that separating axis.  Only two of the
 		// three vertices are needed per edge because one vertex is always on the
 		// edge itself and drops out of the min/max.
-		const float p00 = a0x*v0.x + a0z*v0.z, p20 = a0x*v2.x + a0z*v2.z;
-		const float p11 = a1x*v1.x + a1z*v1.z, p01 = a1x*v0.x + a1z*v0.z;
-		const float p22 = a2x*v2.x + a2z*v2.z, p12 = a2x*v1.x + a2z*v1.z;
+		const float p00 = a0x*v0x + a0z*v0z, p20 = a0x*v2x + a0z*v2z;
+		const float p11 = a1x*v1x + a1z*v1z, p01 = a1x*v0x + a1z*v0z;
+		const float p22 = a2x*v2x + a2z*v2z, p12 = a2x*v1x + a2z*v1z;
 		tri_planes.t0min[i] = rcMin(p00, p20); tri_planes.t0max[i] = rcMax(p00, p20);
 		tri_planes.t1min[i] = rcMin(p11, p01); tri_planes.t1max[i] = rcMax(p11, p01);
 		tri_planes.t2min[i] = rcMin(p22, p12); tri_planes.t2max[i] = rcMax(p22, p12);
@@ -647,18 +647,13 @@ bool rcRasterizeTriangles(rcContext* context,
 		// differs from the Y value at the -X corner by dy_dx = -nx*cs/ny (and
 		// similarly dy_dz for the Z axis).  min_off / max_off bound the full Y
 		// variation across all four corners of a cell, allowing voxelizeTriToBitBlock
-		// to tighten the Y interval tested per cell.  Both are zero for a flat
-		// (horizontal) triangle, or when the triangle is vertical (inv_ny == 0).
-		float min_off = 0.f, max_off = 0.f;
-		if (inv_ny != 0.f)
-		{
-			const float dy_dx = -nx * cs * inv_ny;
-			const float dy_dz = -nz * cs * inv_ny;
-			min_off = rcMin(rcMin(0.f, dy_dx), rcMin(dy_dz, dy_dx + dy_dz));
-			max_off = rcMax(rcMax(0.f, dy_dx), rcMax(dy_dz, dy_dx + dy_dz));
-		}
-		tri_planes.min_off[i] = min_off;
-		tri_planes.max_off[i] = max_off;
+		// to tighten the Y interval tested per cell.
+		// When inv_ny == 0, dy_dx and dy_dz are both 0, so min_off and max_off
+		// are also 0 — no branch needed.
+		const float dy_dx = -nx * cs * inv_ny;
+		const float dy_dz = -nz * cs * inv_ny;
+		tri_planes.min_off[i] = rcMin(rcMin(0.f, dy_dx), rcMin(dy_dz, dy_dx + dy_dz));
+		tri_planes.max_off[i] = rcMax(rcMax(0.f, dy_dx), rcMax(dy_dz, dy_dx + dy_dz));
 	}
 
 	// --- Bucket triangles into tiles (CSR format) ---
