@@ -324,7 +324,7 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 	const int z0 = rcMax((int)((b.minZ - hf_min.z) * inv_cs), tile_z);
 	const int z1 = rcMin((int)((b.maxZ - hf_min.z) * inv_cs), tile_z + BLOCK_XZ - 1);
 
-	const float by = hf_max.y - hf_min.y;
+	const float hf_y_range = hf_max.y - hf_min.y;
 
 	for (int iz = z0; iz <= z1; ++iz)
 	{
@@ -365,12 +365,12 @@ static void voxelizeTriToBitBlock(uint64_t* block,
 			}
 
 			// Convert world Y to span indices; clamp to heightfield then to Y chunk
-			const float sm_rel = span_min - hf_min.y;
-			const float sx_rel = span_max - hf_min.y;
-			if (sx_rel < 0.f || sm_rel > by) continue;
+			const float span_min_rel = span_min - hf_min.y;
+			const float span_max_rel = span_max - hf_min.y;
+			if (span_max_rel < 0.f || span_min_rel > hf_y_range) continue;
 
-			const int y_min = rcClamp((int)floorf(rcMax(sm_rel, 0.f) * inv_ch), 0, RC_SPAN_MAX_HEIGHT);
-			const int y_max = rcClamp((int)ceilf(rcMin(sx_rel, by)  * inv_ch), y_min + 1, RC_SPAN_MAX_HEIGHT);
+			const int y_min = rcClamp((int)floorf(rcMax(span_min_rel, 0.f) * inv_ch), 0, RC_SPAN_MAX_HEIGHT);
+			const int y_max = rcClamp((int)ceilf(rcMin(span_max_rel, hf_y_range)  * inv_ch), y_min + 1, RC_SPAN_MAX_HEIGHT);
 
 			const int b_min = rcMax(y_min, y_base);
 			const int b_max = rcMin(y_max, y_base + BLOCK_Y);
