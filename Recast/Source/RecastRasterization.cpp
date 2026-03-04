@@ -30,11 +30,6 @@ static int rcCtz64(unsigned long long x) { unsigned long i; _BitScanForward64(&i
 static int rcCtz64(unsigned long long x) { return __builtin_ctzll(x); }
 #endif
 
-#if defined(__ARM_NEON)
-#  include <arm_neon.h>
-#elif defined(__SSE__)
-#  include <xmmintrin.h>
-#endif
 
 
 /// Allocates a new span in the heightfield.
@@ -484,72 +479,6 @@ static bool extractSpansFromBitBlock(const uint64_t* block, rcHeightfield& hf,
 	return true;
 }
 
-/// Computes per-triangle AABBs from a TriChunk into a TriBoundsSoA.
-///
-/// Processes 4 triangles per cycle using SIMD min/max (NEON or SSE),
-/// with a scalar tail for any remaining triangles.  Both the input chunk
-/// arrays and the output SoA arrays are contiguous floats, so loads and
-/// stores are sequential with no gather/scatter overhead.
-static void computeTriBoundsSoA(const TriChunk& chunk, const int num_tris, TriBoundsSoA& out)
-{
-	int i = 0;
-
-#if defined(__ARM_NEON)
-	for (; i + 4 <= num_tris; i += 4)
-	{
-		const float32x4_t v0x = vld1q_f32(chunk.v0x + i);
-		const float32x4_t v1x = vld1q_f32(chunk.v1x + i);
-		const float32x4_t v2x = vld1q_f32(chunk.v2x + i);
-		vst1q_f32(out.min_x + i, vminq_f32(vminq_f32(v0x, v1x), v2x));
-		vst1q_f32(out.max_x + i, vmaxq_f32(vmaxq_f32(v0x, v1x), v2x));
-
-		const float32x4_t v0y = vld1q_f32(chunk.v0y + i);
-		const float32x4_t v1y = vld1q_f32(chunk.v1y + i);
-		const float32x4_t v2y = vld1q_f32(chunk.v2y + i);
-		vst1q_f32(out.min_y + i, vminq_f32(vminq_f32(v0y, v1y), v2y));
-		vst1q_f32(out.max_y + i, vmaxq_f32(vmaxq_f32(v0y, v1y), v2y));
-
-		const float32x4_t v0z = vld1q_f32(chunk.v0z + i);
-		const float32x4_t v1z = vld1q_f32(chunk.v1z + i);
-		const float32x4_t v2z = vld1q_f32(chunk.v2z + i);
-		vst1q_f32(out.min_z + i, vminq_f32(vminq_f32(v0z, v1z), v2z));
-		vst1q_f32(out.max_z + i, vmaxq_f32(vmaxq_f32(v0z, v1z), v2z));
-	}
-#elif defined(__SSE__)
-	for (; i + 4 <= num_tris; i += 4)
-	{
-		const __m128 v0x = _mm_loadu_ps(chunk.v0x + i);
-		const __m128 v1x = _mm_loadu_ps(chunk.v1x + i);
-		const __m128 v2x = _mm_loadu_ps(chunk.v2x + i);
-		_mm_storeu_ps(out.min_x + i, _mm_min_ps(_mm_min_ps(v0x, v1x), v2x));
-		_mm_storeu_ps(out.max_x + i, _mm_max_ps(_mm_max_ps(v0x, v1x), v2x));
-
-		const __m128 v0y = _mm_loadu_ps(chunk.v0y + i);
-		const __m128 v1y = _mm_loadu_ps(chunk.v1y + i);
-		const __m128 v2y = _mm_loadu_ps(chunk.v2y + i);
-		_mm_storeu_ps(out.min_y + i, _mm_min_ps(_mm_min_ps(v0y, v1y), v2y));
-		_mm_storeu_ps(out.max_y + i, _mm_max_ps(_mm_max_ps(v0y, v1y), v2y));
-
-		const __m128 v0z = _mm_loadu_ps(chunk.v0z + i);
-		const __m128 v1z = _mm_loadu_ps(chunk.v1z + i);
-		const __m128 v2z = _mm_loadu_ps(chunk.v2z + i);
-		_mm_storeu_ps(out.min_z + i, _mm_min_ps(_mm_min_ps(v0z, v1z), v2z));
-		_mm_storeu_ps(out.max_z + i, _mm_max_ps(_mm_max_ps(v0z, v1z), v2z));
-	}
-#endif
-
-	// Scalar tail (or full loop when no SIMD is available).
-	for (; i < num_tris; ++i)
-	{
-		out.min_x[i] = rcMin(rcMin(chunk.v0x[i], chunk.v1x[i]), chunk.v2x[i]);
-		out.max_x[i] = rcMax(rcMax(chunk.v0x[i], chunk.v1x[i]), chunk.v2x[i]);
-		out.min_y[i] = rcMin(rcMin(chunk.v0y[i], chunk.v1y[i]), chunk.v2y[i]);
-		out.max_y[i] = rcMax(rcMax(chunk.v0y[i], chunk.v1y[i]), chunk.v2y[i]);
-		out.min_z[i] = rcMin(rcMin(chunk.v0z[i], chunk.v1z[i]), chunk.v2z[i]);
-		out.max_z[i] = rcMax(rcMax(chunk.v0z[i], chunk.v1z[i]), chunk.v2z[i]);
-	}
-}
-
 bool rcRasterizeTriangles(rcContext* context,
                           const TriChunk& chunk, const NormalChunk& normals,
                           const int num_tris, const uint8_t* tri_area_ids,
@@ -645,10 +574,18 @@ bool rcRasterizeTriangles(rcContext* context,
 	tri_planes.min_off = planes_buf + 28 * num_tris;
 	tri_planes.max_off = planes_buf + 29 * num_tris;
 
-	// Compute all triangle AABBs in a vectorized pass (4 triangles per cycle).
-	// This is done before the planes loop so the bounds are available for the
-	// CSR bucketing pass and so the two loops remain independent and hot.
-	computeTriBoundsSoA(chunk, num_tris, tri_bounds);
+	// Compute per-triangle AABBs.  This loop runs before the planes loop so
+	// the two passes stay independent and the compiler can auto-vectorize this
+	// one freely (branchless min/max over contiguous SoA arrays, no aliasing).
+	for (int i = 0; i < num_tris; ++i)
+	{
+		tri_bounds.min_x[i] = rcMin(rcMin(chunk.v0x[i], chunk.v1x[i]), chunk.v2x[i]);
+		tri_bounds.max_x[i] = rcMax(rcMax(chunk.v0x[i], chunk.v1x[i]), chunk.v2x[i]);
+		tri_bounds.min_y[i] = rcMin(rcMin(chunk.v0y[i], chunk.v1y[i]), chunk.v2y[i]);
+		tri_bounds.max_y[i] = rcMax(rcMax(chunk.v0y[i], chunk.v1y[i]), chunk.v2y[i]);
+		tri_bounds.min_z[i] = rcMin(rcMin(chunk.v0z[i], chunk.v1z[i]), chunk.v2z[i]);
+		tri_bounds.max_z[i] = rcMax(rcMax(chunk.v0z[i], chunk.v1z[i]), chunk.v2z[i]);
+	}
 
 	for (int i = 0; i < num_tris; ++i)
 	{
